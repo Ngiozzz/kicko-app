@@ -33,20 +33,21 @@ export default function SignUp() {
     }
 
     setLoading(true);
-    const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
-    if (signUpError || !data.user) {
-      setLoading(false);
-      setError(signUpError?.message ?? 'Could not create your account.');
-      return;
-    }
-
-    const { error: profileError } = await supabase
-      .from('users')
-      .insert({ id: data.user.id, role, name, email, phone: phone || null });
+    // Everything Supabase needs to create the profile row goes in
+    // options.data — a database trigger reads it and inserts into
+    // public.users automatically (see backend/supabase/migrations/
+    // ..._auth_signup_trigger.sql). No separate insert call from the
+    // client: the backend owns public.users, this is the one exception
+    // baked into the trigger itself, same pattern Thurfa uses.
+    const { error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { name, phone: phone || null, role } },
+    });
     setLoading(false);
 
-    if (profileError) {
-      setError(profileError.message);
+    if (signUpError) {
+      setError(signUpError.message);
       return;
     }
     router.replace('/');
