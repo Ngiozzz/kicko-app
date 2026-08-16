@@ -1,108 +1,120 @@
-import { StyleSheet, Text, View, ScrollView, Pressable } from 'react-native';
+import { useRef, useState } from 'react';
+import { StyleSheet, Text, View, ScrollView, Pressable, useWindowDimensions } from 'react-native';
 import { Link } from 'expo-router';
+import Svg, { Circle } from 'react-native-svg';
 import { colors, fonts, radius } from '@kicko/shared';
 import { WebNav } from '../src/components/WebNav';
+import { Footer } from '../src/components/Footer';
+import { FaqAccordion } from '../src/components/FaqAccordion';
 import { SportIcon, Sport } from '../src/components/SportIcon';
+import { Role, roleContent } from '../src/content/roleContent';
+import { useFade } from '../src/lib/useFade';
+import { withRole } from '../src/lib/withRole';
 
-const SPORTS: Sport[] = ['football', 'basketball', 'tennis', 'padel', 'volleyball'];
+const NARROW = 900;
+
+// Loosely scattered, not a tidy row — each icon at its own size/rotation,
+// like pins on a board rather than a logo lockup. Static across roles,
+// same as Thurfa's pitch-graphic SVG doesn't change per role either —
+// only the text/CTAs swap.
+const COLLAGE: { sport: Sport; size: number; top: number; left: number; rotate: string }[] = [
+  { sport: 'football', size: 92, top: 10, left: 130, rotate: '-8deg' },
+  { sport: 'basketball', size: 58, top: 128, left: 8, rotate: '11deg' },
+  { sport: 'tennis', size: 50, top: 30, left: 268, rotate: '16deg' },
+  { sport: 'padel', size: 56, top: 226, left: 196, rotate: '-13deg' },
+  { sport: 'volleyball', size: 46, top: 244, left: 44, rotate: '7deg' },
+];
+
+function IconCollage() {
+  return (
+    <View style={styles.collage}>
+      <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
+        <Circle cx={180} cy={165} r={168} fill="none" stroke="rgba(192,138,62,0.16)" strokeWidth={2} />
+        <Circle cx={180} cy={165} r={130} fill="none" stroke="rgba(30,33,38,0.06)" strokeWidth={1} />
+      </Svg>
+      {COLLAGE.map(({ sport, size, top, left, rotate }) => (
+        <View key={sport} style={[styles.collageIcon, { top, left, transform: [{ rotate }] }]}>
+          <SportIcon sport={sport} size={size} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function CtaButton({ role, kind }: { role: Role; kind: 'primary' | 'secondary' }) {
+  const cta = roleContent[role][kind];
+  const solid = kind === 'primary';
+
+  if ('comingSoon' in cta) {
+    return (
+      <View style={[styles.btnBase, solid ? styles.comingSoonSolid : styles.comingSoonGhost]}>
+        <Text style={solid ? styles.comingSoonSolidText : styles.comingSoonGhostText}>{cta.text}</Text>
+      </View>
+    );
+  }
+
+  // Carry the role forward so /sign-in or /sign-up shows the right copy.
+  const href = withRole(cta.href, role);
+
+  // expo-router's <Link asChild> forwards props through <Slot> onto its
+  // direct child, which can't take an array of styles — flatten first.
+  return (
+    <Link href={href} asChild>
+      <Pressable style={StyleSheet.flatten([styles.btnBase, solid ? styles.primaryBtn : styles.secondaryBtn])}>
+        <Text style={solid ? styles.primaryBtnText : styles.secondaryBtnText}>{cta.text}</Text>
+      </Pressable>
+    </Link>
+  );
+}
 
 export default function Landing() {
+  const { width } = useWindowDimensions();
+  const narrow = width < NARROW;
+  const [activeRole, setActiveRole] = useState<Role>('owner');
+  const scrollRef = useRef<ScrollView>(null);
+  const data = roleContent[activeRole];
+  const fade = useFade(activeRole);
+
+  function handleSelectRole(role: Role) {
+    setActiveRole(role);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  }
+
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.rootContent}>
-      <WebNav />
+    <ScrollView ref={scrollRef} style={styles.root} contentContainerStyle={styles.rootContent}>
+      <WebNav activeRole={activeRole} onSelectRole={handleSelectRole} />
 
-      {/* Hero */}
-      <View style={styles.hero}>
-        <Text style={styles.eyebrow}>Multi-sport venue booking</Text>
-        <Text style={styles.heroTitle}>Every court, one platform.</Text>
-        <Text style={styles.heroSubtitle}>
-          Kicko connects players looking for a game with the owners and managers running the venues that host it.
-        </Text>
-        <View style={styles.sportRow}>
-          {SPORTS.map((s) => (
-            <SportIcon key={s} sport={s} size={30} />
-          ))}
-        </View>
-        <View style={styles.heroActions}>
-          <Link href="/sign-up" asChild>
-            <Pressable style={styles.primaryBtn}>
-              <Text style={styles.primaryBtnText}>List your venue</Text>
-            </Pressable>
-          </Link>
-          <Link href="/sign-in" asChild>
-            <Pressable style={styles.secondaryBtn}>
-              <Text style={styles.secondaryBtnText}>Sign in</Text>
-            </Pressable>
-          </Link>
-        </View>
-      </View>
-
-      {/* For Players */}
-      <View nativeID="players" style={[styles.section, styles.sectionAlt]}>
-        <View style={styles.sectionInner}>
-          <Text style={styles.sectionEyebrow}>For players</Text>
-          <Text style={styles.sectionTitle}>Book pitches in minutes and get playing.</Text>
-          <Text style={styles.sectionBody}>
-            Find a court, book a slot, and split the cost with your team — all from the Kicko mobile app.
+      {/* Hero: content swaps per role tab (see roleContent.ts) instead of
+          scrolling to a different section — same interaction Thurfa's
+          role switcher uses, rebuilt in Kicko's own design language. */}
+      <View style={[styles.hero, narrow && styles.heroNarrow]}>
+        <View style={[styles.heroCopy, narrow && styles.heroCopyNarrow, fade]}>
+          <Text style={styles.eyebrow}>{data.eyebrow}</Text>
+          <Text style={[styles.heroTitle, narrow && styles.heroTitleNarrow]}>
+            {data.headlineLines[0]}
+            {'\n'}
+            {data.headlineLines[1]}
+            {'\n'}
+            <Text style={styles.heroTitleAccent}>{data.headlineLines[2]}</Text>
           </Text>
-          <View style={styles.comingSoonBadge}>
-            <Text style={styles.comingSoonText}>Mobile app — coming soon</Text>
+          <Text style={styles.heroSubtitle}>{data.sub}</Text>
+          <View style={styles.heroActions}>
+            <CtaButton role={activeRole} kind="primary" />
+            <CtaButton role={activeRole} kind="secondary" />
           </View>
         </View>
+        {!narrow && <IconCollage />}
       </View>
 
-      {/* For Owners */}
-      <View nativeID="owners" style={styles.section}>
-        <View style={styles.sectionInner}>
-          <Text style={styles.sectionEyebrow}>For owners</Text>
-          <Text style={styles.sectionTitle}>Run your venues like a business.</Text>
-          <Text style={styles.sectionBody}>
-            List your courts, take bookings automatically, track payouts, and add managers to help run the day-to-day
-            — all from one dashboard.
-          </Text>
-          <View style={styles.sectionActions}>
-            <Link href="/sign-up" asChild>
-              <Pressable style={styles.primaryBtn}>
-                <Text style={styles.primaryBtnText}>Create your account</Text>
-              </Pressable>
-            </Link>
-            <Link href="/sign-in" asChild>
-              <Pressable>
-                <Text style={styles.inlineLink}>Already have an account? Sign in</Text>
-              </Pressable>
-            </Link>
-          </View>
-        </View>
+      {/* FAQ: kicker + intro swap per role, heading stays put */}
+      <View style={[styles.faqWrap, fade]}>
+        <Text style={styles.faqKicker}>{data.faqKicker}</Text>
+        <Text style={styles.faqTitle}>What people ask</Text>
+        <Text style={styles.faqSubtitle}>{data.faqIntro}</Text>
+        <FaqAccordion faqs={data.faqs} />
       </View>
 
-      {/* For Managers */}
-      <View nativeID="managers" style={[styles.section, styles.sectionAlt]}>
-        <View style={styles.sectionInner}>
-          <Text style={styles.sectionEyebrow}>For managers</Text>
-          <Text style={styles.sectionTitle}>Manage the day-to-day, without owning the account.</Text>
-          <Text style={styles.sectionBody}>
-            Managers are added directly by their venue owner — there's no separate sign-up. If you've been added to a
-            venue, sign in below.
-          </Text>
-          <View style={styles.sectionActions}>
-            <Link href="/sign-in" asChild>
-              <Pressable style={styles.primaryBtn}>
-                <Text style={styles.primaryBtnText}>Manager sign in</Text>
-              </Pressable>
-            </Link>
-          </View>
-        </View>
-      </View>
-
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>© {new Date().getFullYear()} Kicko</Text>
-        <Link href="/admin" asChild>
-          <Pressable>
-            <Text style={styles.adminLink}>Admin</Text>
-          </Pressable>
-        </Link>
-      </View>
+      <Footer onSelectRole={handleSelectRole} />
     </ScrollView>
   );
 }
@@ -112,14 +124,20 @@ const styles = StyleSheet.create({
   rootContent: { flexGrow: 1 },
 
   hero: {
-    maxWidth: 720,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    maxWidth: 1160,
     alignSelf: 'center',
     width: '100%',
-    alignItems: 'center',
     paddingHorizontal: 24,
     paddingTop: 56,
     paddingBottom: 72,
+    gap: 40,
   },
+  heroNarrow: { flexDirection: 'column' },
+  heroCopy: { flex: 1, maxWidth: 520 },
+  heroCopyNarrow: { maxWidth: '100%' },
   eyebrow: {
     fontFamily: fonts.sansBold,
     fontSize: 12,
@@ -128,77 +146,34 @@ const styles = StyleSheet.create({
     color: colors.accent,
     marginBottom: 14,
   },
-  heroTitle: {
-    fontFamily: fonts.serif,
-    fontSize: 46,
-    lineHeight: 52,
-    color: colors.text,
-    textAlign: 'center',
-    marginBottom: 14,
-  },
-  heroSubtitle: {
-    fontFamily: fonts.sans,
-    fontSize: 16,
-    lineHeight: 24,
-    color: colors.textSoft,
-    textAlign: 'center',
-    maxWidth: 480,
-    marginBottom: 28,
-  },
-  sportRow: { flexDirection: 'row', gap: 14, marginBottom: 36 },
-  heroActions: { flexDirection: 'row', gap: 14 },
+  heroTitle: { fontFamily: fonts.serif, fontSize: 52, lineHeight: 57, color: colors.text, marginBottom: 16 },
+  heroTitleNarrow: { fontSize: 38, lineHeight: 43 },
+  heroTitleAccent: { color: colors.accent },
+  heroSubtitle: { fontFamily: fonts.sans, fontSize: 16, lineHeight: 24, color: colors.textSoft, marginBottom: 28 },
+  heroActions: { flexDirection: 'row', gap: 14, flexWrap: 'wrap' },
 
-  primaryBtn: {
-    backgroundColor: colors.accent,
-    borderRadius: radius.pill,
-    paddingVertical: 13,
-    paddingHorizontal: 24,
-  },
+  collage: { width: 360, height: 330 },
+  collageIcon: { position: 'absolute' },
+
+  btnBase: { borderRadius: radius.pill, paddingVertical: 13, paddingHorizontal: 24, alignSelf: 'flex-start' },
+  primaryBtn: { backgroundColor: colors.accent },
   primaryBtnText: { fontFamily: fonts.sansBold, fontSize: 14.5, color: colors.accentText },
-  secondaryBtn: {
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: radius.pill,
-    paddingVertical: 13,
-    paddingHorizontal: 24,
-  },
+  secondaryBtn: { borderWidth: 1.5, borderColor: colors.border, backgroundColor: 'transparent' },
   secondaryBtnText: { fontFamily: fonts.sansBold, fontSize: 14.5, color: colors.text },
+  comingSoonSolid: { backgroundColor: colors.accentSoft },
+  comingSoonSolidText: { fontFamily: fonts.sansSemiBold, fontSize: 14.5, color: colors.accent },
+  comingSoonGhost: { borderWidth: 1.5, borderColor: colors.border },
+  comingSoonGhostText: { fontFamily: fonts.sansBold, fontSize: 14.5, color: colors.text },
 
-  section: { paddingVertical: 64, paddingHorizontal: 24 },
-  sectionAlt: { backgroundColor: colors.surface },
-  sectionInner: { maxWidth: 640, alignSelf: 'center', width: '100%' },
-  sectionEyebrow: {
+  faqWrap: { maxWidth: 880, alignSelf: 'center', width: '100%', paddingHorizontal: 24, paddingBottom: 72 },
+  faqKicker: {
     fontFamily: fonts.sansBold,
     fontSize: 12,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
     color: colors.accent,
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  sectionTitle: { fontFamily: fonts.serif, fontSize: 30, lineHeight: 36, color: colors.text, marginBottom: 14 },
-  sectionBody: { fontFamily: fonts.sans, fontSize: 15, lineHeight: 23, color: colors.textSoft, maxWidth: 520, marginBottom: 24 },
-  sectionActions: { flexDirection: 'row', alignItems: 'center', gap: 20, flexWrap: 'wrap' },
-  inlineLink: { fontFamily: fonts.sansBold, fontSize: 14, color: colors.accent },
-
-  comingSoonBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.accentSoft,
-    borderRadius: radius.pill,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  comingSoonText: { fontFamily: fonts.sansSemiBold, fontSize: 12.5, color: colors.accent },
-
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    maxWidth: 1160,
-    width: '100%',
-    alignSelf: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 28,
-  },
-  footerText: { fontFamily: fonts.sans, fontSize: 12.5, color: colors.textSoft },
-  adminLink: { fontFamily: fonts.sans, fontSize: 12, color: colors.textSoft, opacity: 0.55 },
+  faqTitle: { fontFamily: fonts.serif, fontSize: 28, lineHeight: 33, color: colors.text, marginBottom: 8 },
+  faqSubtitle: { fontFamily: fonts.sans, fontSize: 14.5, lineHeight: 22, color: colors.textSoft, marginBottom: 12 },
 });

@@ -1,20 +1,46 @@
 import { useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
-import { Link, router } from 'expo-router';
-import { colors, fonts } from '@kicko/shared';
+import { Link, router, useLocalSearchParams } from 'expo-router';
+import { apiFetch, colors, fonts } from '@kicko/shared';
 import { Button, Field } from '../src/components/ui';
 import { AuthLayout } from '../src/components/AuthLayout';
 import { supabase, supabaseConfigured } from '@kicko/shared';
+import { resolveHomeRoute } from '../src/lib/roleRoute';
+import { Role } from '../src/content/roleContent';
+import { signInContent } from '../src/content/signInContent';
 
-const BULLETS = [
-  'Real-time bookings across every court you manage',
-  'Clear payout tracking, no spreadsheets',
-  'Add managers and staff without giving up control',
-];
+const ROLES: Role[] = ['player', 'owner', 'manager'];
+
+function parseRole(value: string | string[] | undefined): Role {
+  const candidate = Array.isArray(value) ? value[0] : value;
+  return (ROLES as string[]).includes(candidate ?? '') ? (candidate as Role) : 'owner';
+}
+
+function SignUpFootNote({ role }: { role: Role }) {
+  if (role === 'manager') {
+    return <Text style={styles.footNote}>Managers don't sign up directly — ask your venue owner to add you.</Text>;
+  }
+  return (
+    <Text style={styles.footNote}>
+      New to Kicko?{' '}
+      <Link href={`/sign-up?role=${role}`} style={styles.footLink}>
+        Create an account
+      </Link>
+    </Text>
+  );
+}
 
 type FieldErrors = { email?: string; password?: string };
 
 export default function SignIn() {
+  // /sign-in?role=player|owner|manager — only picks which copy shows on
+  // the brand panel and the page title, so it's always clear whose
+  // sign-in this is. Defaults to owner when reached with no context
+  // (e.g. a bare /sign-in link, or forgot/reset-password's "back" link).
+  const { role: roleParam } = useLocalSearchParams<{ role?: string }>();
+  const role = parseRole(roleParam);
+  const copy = signInContent[role];
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -45,19 +71,29 @@ export default function SignIn() {
 
     setLoading(true);
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-
     if (signInError) {
+      setLoading(false);
       setFormError(signInError.message);
       return;
     }
-    router.replace('/');
+
+    // Route by the account's real role, not by the ?role= this page was
+    // opened with — that's just which copy to show, not a guarantee of
+    // who's actually signing in.
+    try {
+      const { user } = await apiFetch<{ user: { role: string } }>('/api/account/me');
+      router.replace(resolveHomeRoute(user.role));
+    } catch {
+      router.replace('/');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
-    <AuthLayout headline="Good to have you back." subhead="Everything you need to run your venues, in one place." bullets={BULLETS}>
-      <Text style={styles.title}>Sign in</Text>
-      <Text style={styles.subtitle}>Enter your details to get back to your dashboard.</Text>
+    <AuthLayout headline={copy.headline} subhead={copy.subhead} bullets={copy.bullets}>
+      <Text style={styles.title}>{copy.roleLabel} sign in</Text>
+      <Text style={styles.subtitle}>Enter your details to get back to your account.</Text>
 
       <Field
         label="Email"
@@ -89,12 +125,7 @@ export default function SignIn() {
 
       <Button title={loading ? 'Signing in…' : 'Sign in'} onPress={handleSignIn} disabled={loading} />
 
-      <Text style={styles.footNote}>
-        New to Kicko?{' '}
-        <Link href="/sign-up" style={styles.footLink}>
-          Create an account
-        </Link>
-      </Text>
+      <SignUpFootNote role={role} />
     </AuthLayout>
   );
 }

@@ -3,6 +3,8 @@ import cors from "cors";
 import dotenv from "dotenv";
 
 import accountRoutes from "./routes/account.routes.js";
+import venuesRoutes from "./routes/venues.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
 
 dotenv.config();
 
@@ -18,6 +20,8 @@ app.get("/", (req, res) => {
 
 // Routes
 app.use("/api/account", accountRoutes);
+app.use("/api/venues", venuesRoutes);
+app.use("/api/admin", adminRoutes);
 
 // 404 handler
 app.use((req, res) => {

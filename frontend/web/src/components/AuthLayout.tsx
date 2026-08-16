@@ -53,7 +53,9 @@ function BrandPanel({ headline, subhead, bullets }: { headline: string; subhead:
         <View style={styles.bulletList}>
           {bullets.map((bullet) => (
             <View key={bullet} style={styles.bulletRow}>
-              <View style={styles.bulletDot} />
+              <View style={styles.checkBadge}>
+                <Text style={styles.checkMark}>✓</Text>
+              </View>
               <Text style={styles.bulletText}>{bullet}</Text>
             </View>
           ))}
@@ -89,7 +91,12 @@ export function AuthLayout({
             </Text>
           </View>
         )}
-        <View style={styles.formInner}>{children}</View>
+        <View style={styles.formInner}>
+          <Link href="/" style={styles.backLink}>
+            ← Back to Kicko
+          </Link>
+          {children}
+        </View>
       </View>
     </View>
   );
@@ -137,11 +144,27 @@ const styles = StyleSheet.create({
   },
   bulletList: { gap: 14, marginTop: 40 },
   bulletRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  bulletDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accent, marginTop: 7 },
+  checkBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(192,138,62,0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    marginTop: 1,
+  },
+  checkMark: { fontSize: 11, color: colors.accent, fontFamily: fonts.sansBold },
   bulletText: { flex: 1, fontFamily: fonts.sans, fontSize: 14, lineHeight: 21, color: 'rgba(247,244,239,0.85)' },
 
   formPanel: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 48 },
   formInner: { width: '100%', maxWidth: 380 },
+  backLink: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    color: colors.textSoft,
+    marginBottom: 24,
+  },
 
   narrowLogoRow: {
     position: 'absolute',

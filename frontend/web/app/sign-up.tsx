@@ -1,24 +1,31 @@
 import { useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
-import { Link, router } from 'expo-router';
+import { Link, router, useLocalSearchParams } from 'expo-router';
 import { colors, fonts } from '@kicko/shared';
 import { Button, Field } from '../src/components/ui';
 import { AuthLayout } from '../src/components/AuthLayout';
 import { supabase, supabaseConfigured } from '@kicko/shared';
+import { resolveHomeRoute } from '../src/lib/roleRoute';
+import { SignUpRole, signUpContent } from '../src/content/signUpContent';
 
-const BULLETS = [
-  'Real-time bookings across every court you manage',
-  'Clear payout tracking, no spreadsheets',
-  'Add managers and staff without giving up control',
-];
+const ROLES: SignUpRole[] = ['player', 'owner'];
+
+function parseRole(value: string | string[] | undefined): SignUpRole {
+  const candidate = Array.isArray(value) ? value[0] : value;
+  return (ROLES as string[]).includes(candidate ?? '') ? (candidate as SignUpRole) : 'owner';
+}
 
 type FieldErrors = { name?: string; email?: string; password?: string };
 
-// Web sign-up is owner-only — players sign up on mobile, and
-// managers/admins are never self-registered (an owner adds managers
-// directly; admins are provisioned by hand), matching Thurfa's own
+// Web sign-up covers players and owners (/sign-up?role=...). Managers
+// and admins still never self-register — an owner adds managers
+// directly, admins are provisioned by hand — matching Thurfa's own
 // signup-trigger convention.
 export default function SignUp() {
+  const { role: roleParam } = useLocalSearchParams<{ role?: string }>();
+  const role = parseRole(roleParam);
+  const copy = signUpContent[role];
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -26,6 +33,7 @@ export default function SignUp() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [confirmEmailSent, setConfirmEmailSent] = useState(false);
 
   function validateName(value: string) {
     return value ? undefined : 'Enter your name.';
@@ -63,10 +71,10 @@ export default function SignUp() {
     // ..._auth_signup_trigger.sql). No separate insert call from the
     // client: the backend owns public.users, this is the one exception
     // baked into the trigger itself, same pattern Thurfa uses.
-    const { error: signUpError } = await supabase.auth.signUp({
+    const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name, phone: phone || null, role: 'owner' } },
+      options: { data: { name, phone: phone || null, role } },
     });
     setLoading(false);
 
@@ -74,60 +82,79 @@ export default function SignUp() {
       setFormError(signUpError.message);
       return;
     }
-    router.replace('/');
+
+    // Role is known here (whichever this page was opened for) so there's
+    // no need to look it up — but whether we actually have a session
+    // depends on whether the project requires email confirmation first.
+    if (data.session) {
+      router.replace(resolveHomeRoute(role));
+    } else {
+      setConfirmEmailSent(true);
+    }
   }
 
   return (
-    <AuthLayout headline="Turn your pitch into a business." subhead="List your venue, take bookings automatically, and get paid on time." bullets={BULLETS}>
-      <Text style={styles.title}>Create your owner account</Text>
-      <Text style={styles.subtitle}>Manage your venues, review bookings, and get paid — all from one dashboard.</Text>
+    <AuthLayout headline={copy.headline} subhead={copy.subhead} bullets={copy.bullets}>
+      {confirmEmailSent ? (
+        <>
+          <Text style={styles.title}>Check your email</Text>
+          <Text style={styles.subtitle}>
+            We’ve sent a confirmation link to {email}. Confirm your address, then sign in to get to your account.
+          </Text>
+        </>
+      ) : (
+        <>
+          <Text style={styles.title}>{copy.formTitle}</Text>
+          <Text style={styles.subtitle}>{copy.formSubtitle}</Text>
 
-      <Field
-        label="Full name"
-        placeholder="Jane Doe"
-        autoComplete="name"
-        value={name}
-        onChangeText={setName}
-        onBlur={() => setFieldErrors((e) => ({ ...e, name: validateName(name) }))}
-        error={fieldErrors.name}
-      />
-      <Field
-        label="Email"
-        placeholder="you@example.com"
-        autoCapitalize="none"
-        autoComplete="email"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-        onBlur={() => setFieldErrors((e) => ({ ...e, email: validateEmail(email) }))}
-        error={fieldErrors.email}
-      />
-      <Field
-        label="Phone (optional)"
-        placeholder="+254 700 000 000"
-        autoComplete="tel"
-        keyboardType="phone-pad"
-        value={phone}
-        onChangeText={setPhone}
-      />
-      <Field
-        label="Password"
-        placeholder="At least 8 characters"
-        secureTextEntry
-        autoComplete="new-password"
-        value={password}
-        onChangeText={setPassword}
-        onBlur={() => setFieldErrors((e) => ({ ...e, password: validatePassword(password) }))}
-        error={fieldErrors.password}
-      />
+          <Field
+            label="Full name"
+            placeholder="Jane Doe"
+            autoComplete="name"
+            value={name}
+            onChangeText={setName}
+            onBlur={() => setFieldErrors((e) => ({ ...e, name: validateName(name) }))}
+            error={fieldErrors.name}
+          />
+          <Field
+            label="Email"
+            placeholder="you@example.com"
+            autoCapitalize="none"
+            autoComplete="email"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+            onBlur={() => setFieldErrors((e) => ({ ...e, email: validateEmail(email) }))}
+            error={fieldErrors.email}
+          />
+          <Field
+            label="Phone (optional)"
+            placeholder="+254 700 000 000"
+            autoComplete="tel"
+            keyboardType="phone-pad"
+            value={phone}
+            onChangeText={setPhone}
+          />
+          <Field
+            label="Password"
+            placeholder="At least 8 characters"
+            secureTextEntry
+            autoComplete="new-password"
+            value={password}
+            onChangeText={setPassword}
+            onBlur={() => setFieldErrors((e) => ({ ...e, password: validatePassword(password) }))}
+            error={fieldErrors.password}
+          />
 
-      {formError ? <Text style={styles.formError}>{formError}</Text> : null}
+          {formError ? <Text style={styles.formError}>{formError}</Text> : null}
 
-      <Button title={loading ? 'Creating account…' : 'Create account'} onPress={handleSignUp} disabled={loading} />
+          <Button title={loading ? 'Creating account…' : 'Create account'} onPress={handleSignUp} disabled={loading} />
+        </>
+      )}
 
       <Text style={styles.footNote}>
         Already have an account?{' '}
-        <Link href="/sign-in" style={styles.footLink}>
+        <Link href={`/sign-in?role=${role}`} style={styles.footLink}>
           Sign in
         </Link>
       </Text>

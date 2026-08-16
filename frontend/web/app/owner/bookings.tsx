@@ -1,0 +1,81 @@
+import { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
+import { colors, fonts, radius } from '@kicko/shared';
+
+type Filter = 'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled';
+const TABS: { key: Filter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'pending', label: 'Pending review' },
+  { key: 'confirmed', label: 'Confirmed' },
+  { key: 'completed', label: 'Completed' },
+  { key: 'cancelled', label: 'Cancelled' },
+];
+
+function StatCard({ label, value, sub, priority }: { label: string; value: string; sub?: string; priority?: boolean }) {
+  return (
+    <View style={[styles.statCard, priority && styles.statCardPriority]}>
+      <Text style={[styles.statLabel, priority && styles.statLabelAccent]}>{label}</Text>
+      <Text style={[styles.statValue, priority && styles.statLabelAccent]}>{value}</Text>
+      {sub ? <Text style={styles.statSub}>{sub}</Text> : null}
+    </View>
+  );
+}
+
+export default function OwnerBookings() {
+  const { filter: filterParam } = useLocalSearchParams<{ filter?: string }>();
+  const [filter, setFilter] = useState<Filter>('all');
+
+  useEffect(() => {
+    if (TABS.some((t) => t.key === filterParam)) setFilter(filterParam as Filter);
+  }, [filterParam]);
+
+  return (
+    <View>
+      <View style={styles.headRow}>
+        <View>
+          <Text style={styles.title}>Bookings</Text>
+          <Text style={styles.subtitle}>Requests and sessions across every venue you own.</Text>
+        </View>
+        <View style={styles.tabs}>
+          {TABS.map((tab) => (
+            <Pressable key={tab.key} onPress={() => setFilter(tab.key)} style={[styles.tab, filter === tab.key && styles.tabActive]}>
+              <Text style={[styles.tabText, filter === tab.key && styles.tabTextActive]}>{tab.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.statsRow}>
+        <StatCard label="Pending review" value="0" sub="Awaiting a decision →" priority />
+        <StatCard label="Confirmed" value="0" />
+        <StatCard label="Completed this month" value="0" />
+        <StatCard label="Cancelled" value="0" />
+      </View>
+
+      <Text style={styles.emptyNote}>No bookings match this filter.</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  headRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16, marginBottom: 8 },
+  title: { fontFamily: fonts.serif, fontSize: 26, color: colors.text, marginBottom: 4 },
+  subtitle: { fontFamily: fonts.sans, fontSize: 13.5, color: colors.textSoft },
+
+  tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  tab: { paddingVertical: 9, paddingHorizontal: 16, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  tabActive: { backgroundColor: colors.accent, borderColor: 'transparent' },
+  tabText: { fontFamily: fonts.sansSemiBold, fontSize: 13, color: colors.textSoft },
+  tabTextActive: { color: colors.accentText },
+
+  statsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 18, marginTop: 22, marginBottom: 8 },
+  statCard: { flexGrow: 1, flexBasis: 200, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 18 },
+  statCardPriority: { borderColor: colors.accent },
+  statLabel: { fontFamily: fonts.sansSemiBold, fontSize: 12.5, color: colors.textSoft, marginBottom: 10 },
+  statLabelAccent: { color: colors.accent },
+  statValue: { fontFamily: fonts.serif, fontSize: 24, color: colors.text },
+  statSub: { fontFamily: fonts.sans, fontSize: 11.5, color: colors.textSoft, marginTop: 4 },
+
+  emptyNote: { fontFamily: fonts.sans, fontSize: 13, color: colors.textSoft, textAlign: 'center', paddingVertical: 30 },
+});

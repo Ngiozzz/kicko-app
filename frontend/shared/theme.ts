@@ -1,6 +1,8 @@
 // Light-mode palette, ported 1:1 from the design reference at
-// thurfa-platform/Kicko/docs/shared.css (:root tokens). Dark mode isn't
-// wired up yet — fast follow once the light-mode screens are settled.
+// thurfa-platform/Kicko/docs/shared.css (:root tokens). This is the
+// native (mobile) palette — hardcoded hex, no dark mode yet. Web uses
+// theme.web.ts instead (CSS-variable-driven, supports dark mode); Metro
+// picks it automatically for web bundles.
 export const colors = {
   bg: '#F7F4EF',
   surface: '#EAE3D7',
