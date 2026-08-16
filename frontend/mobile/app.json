@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "kicko-app",
-    "slug": "kicko-app",
+    "name": "Kicko",
+    "slug": "kicko-mobile",
     "scheme": "kicko",
     "version": "1.0.0",
     "orientation": "portrait",

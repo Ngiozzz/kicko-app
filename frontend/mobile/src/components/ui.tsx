@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
-import { colors, fonts, radius } from '../theme';
+import { colors, fonts, radius } from '@kicko/shared';
 
 export function Field({
   label,

@@ -4,7 +4,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { Fraunces_500Medium, Fraunces_700Bold } from '@expo-google-fonts/fraunces';
-import { colors } from '../src/theme';
+import { colors } from '@kicko/shared';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 

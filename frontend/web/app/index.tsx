@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Link, router } from 'expo-router';
-import { colors, fonts } from '../src/theme';
+import { colors, fonts } from '@kicko/shared';
 import { Button, Card, Field } from '../src/components/ui';
-import { supabase, supabaseConfigured } from '../src/lib/supabase';
+import { WebNav } from '../src/components/WebNav';
+import { supabase, supabaseConfigured } from '@kicko/shared';
 
 export default function SignIn() {
   const [email, setEmail] = useState('');
@@ -36,6 +37,7 @@ export default function SignIn() {
 
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <WebNav />
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.wrap}>
           <Text style={styles.eyebrow}>Welcome back</Text>

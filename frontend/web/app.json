@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "Kicko",
+    "slug": "kicko-web",
+    "version": "1.0.0",
+    "userInterfaceStyle": "light",
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-splash-screen"
+    ]
+  }
+}
