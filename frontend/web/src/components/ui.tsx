@@ -4,12 +4,18 @@ import { colors, fonts, radius } from '@kicko/shared';
 
 export function Field({
   label,
+  error,
   ...inputProps
-}: { label: string } & TextInputProps) {
+}: { label: string; error?: string } & TextInputProps) {
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput placeholderTextColor={colors.textSoft} style={styles.input} {...inputProps} />
+      <TextInput
+        placeholderTextColor={colors.textSoft}
+        style={[styles.input, error ? styles.inputError : null]}
+        {...inputProps}
+      />
+      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
     </View>
   );
 }
@@ -72,6 +78,13 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sans,
     fontSize: 14,
     color: colors.text,
+  },
+  inputError: { borderColor: colors.danger },
+  fieldError: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    color: colors.danger,
+    marginTop: 6,
   },
   btn: {
     backgroundColor: colors.accent,

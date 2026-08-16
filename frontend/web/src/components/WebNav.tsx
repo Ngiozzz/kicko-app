@@ -1,11 +1,23 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Link } from 'expo-router';
 import { colors, fonts } from '@kicko/shared';
 import { Logo } from './Logo';
 
-// Public-facing top nav for web-only pages reached before signing in (see
-// Kicko/docs/sign-in.html's <nav> — logo + a couple of top-level links).
-// Mobile has no equivalent; there's no browser chrome to echo there.
+const SECTIONS: { id: string; label: string }[] = [
+  { id: 'players', label: 'For players' },
+  { id: 'owners', label: 'For owners' },
+  { id: 'managers', label: 'For managers' },
+];
+
+function scrollToSection(id: string) {
+  if (Platform.OS !== 'web') return;
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Public nav for the landing page (see app/index.tsx) — logo, three
+// anchor links (one per role section on that page), and a sign-in CTA.
+// Deliberately no "sign up" here: only owners can self-register, and
+// that CTA lives inside the owners section itself.
 export function WebNav() {
   return (
     <View style={styles.nav}>
@@ -15,8 +27,17 @@ export function WebNav() {
         </Pressable>
       </Link>
       <View style={styles.links}>
-        <Text style={styles.link}>Venues</Text>
+        {SECTIONS.map((s) => (
+          <Pressable key={s.id} onPress={() => scrollToSection(s.id)}>
+            <Text style={styles.link}>{s.label}</Text>
+          </Pressable>
+        ))}
       </View>
+      <Link href="/sign-in" asChild>
+        <Pressable style={styles.signInBtn}>
+          <Text style={styles.signInText}>Sign in</Text>
+        </Pressable>
+      </Link>
     </View>
   );
 }
@@ -30,8 +51,16 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
     paddingHorizontal: 24,
-    paddingTop: 28,
+    paddingVertical: 20,
   },
   links: { flexDirection: 'row', gap: 28 },
-  link: { fontFamily: fonts.sans, fontSize: 14, color: colors.textSoft },
+  link: { fontFamily: fonts.sansMedium, fontSize: 14, color: colors.textSoft },
+  signInBtn: {
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: 999,
+    paddingVertical: 9,
+    paddingHorizontal: 20,
+  },
+  signInText: { fontFamily: fonts.sansBold, fontSize: 13.5, color: colors.text },
 });

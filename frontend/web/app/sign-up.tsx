@@ -1,10 +1,18 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { Link, router } from 'expo-router';
 import { colors, fonts } from '@kicko/shared';
-import { Button, Card, Field } from '../src/components/ui';
-import { WebNav } from '../src/components/WebNav';
+import { Button, Field } from '../src/components/ui';
+import { AuthLayout } from '../src/components/AuthLayout';
 import { supabase, supabaseConfigured } from '@kicko/shared';
+
+const BULLETS = [
+  'Real-time bookings across every court you manage',
+  'Clear payout tracking, no spreadsheets',
+  'Add managers and staff without giving up control',
+];
+
+type FieldErrors = { name?: string; email?: string; password?: string };
 
 // Web sign-up is owner-only — players sign up on mobile, and
 // managers/admins are never self-registered (an owner adds managers
@@ -15,22 +23,36 @@ export default function SignUp() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  function validateName(value: string) {
+    return value ? undefined : 'Enter your name.';
+  }
+  function validateEmail(value: string) {
+    if (!value) return 'Enter your email.';
+    if (!/^\S+@\S+\.\S+$/.test(value)) return 'That email doesn’t look right.';
+    return undefined;
+  }
+  function validatePassword(value: string) {
+    if (!value) return 'Choose a password.';
+    if (value.length < 8) return 'At least 8 characters.';
+    return undefined;
+  }
 
   async function handleSignUp() {
-    setError(null);
+    setFormError(null);
+    const errors: FieldErrors = {
+      name: validateName(name),
+      email: validateEmail(email),
+      password: validatePassword(password),
+    };
+    setFieldErrors(errors);
+    if (errors.name || errors.email || errors.password) return;
 
-    if (!name || !email || !password) {
-      setError('Name, email, and password are all required.');
-      return;
-    }
-    if (password.length < 8) {
-      setError('Password needs to be at least 8 characters.');
-      return;
-    }
     if (!supabaseConfigured) {
-      setError('Supabase isn’t connected yet — add your project URL and anon key to .env to create an account for real.');
+      setFormError('Supabase isn’t connected yet — add your project URL and anon key to .env to create an account for real.');
       return;
     }
 
@@ -49,101 +71,80 @@ export default function SignUp() {
     setLoading(false);
 
     if (signUpError) {
-      setError(signUpError.message);
+      setFormError(signUpError.message);
       return;
     }
     router.replace('/');
   }
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <WebNav />
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View style={styles.wrap}>
-          <Text style={styles.eyebrow}>List your venue</Text>
-          <Text style={styles.title}>Create your owner account</Text>
-          <Text style={styles.subtitle}>Manage your venues, review bookings, and get paid — all from one dashboard.</Text>
+    <AuthLayout headline="Turn your pitch into a business." subhead="List your venue, take bookings automatically, and get paid on time." bullets={BULLETS}>
+      <Text style={styles.title}>Create your owner account</Text>
+      <Text style={styles.subtitle}>Manage your venues, review bookings, and get paid — all from one dashboard.</Text>
 
-          <Card>
-            <Field label="Full name" placeholder="Jane Doe" value={name} onChangeText={setName} />
-            <Field
-              label="Email"
-              placeholder="you@example.com"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-            />
-            <Field
-              label="Phone (optional)"
-              placeholder="+254 700 000 000"
-              keyboardType="phone-pad"
-              value={phone}
-              onChangeText={setPhone}
-            />
-            <Field label="Password" placeholder="At least 8 characters" secureTextEntry value={password} onChangeText={setPassword} />
+      <Field
+        label="Full name"
+        placeholder="Jane Doe"
+        autoComplete="name"
+        value={name}
+        onChangeText={setName}
+        onBlur={() => setFieldErrors((e) => ({ ...e, name: validateName(name) }))}
+        error={fieldErrors.name}
+      />
+      <Field
+        label="Email"
+        placeholder="you@example.com"
+        autoCapitalize="none"
+        autoComplete="email"
+        keyboardType="email-address"
+        value={email}
+        onChangeText={setEmail}
+        onBlur={() => setFieldErrors((e) => ({ ...e, email: validateEmail(email) }))}
+        error={fieldErrors.email}
+      />
+      <Field
+        label="Phone (optional)"
+        placeholder="+254 700 000 000"
+        autoComplete="tel"
+        keyboardType="phone-pad"
+        value={phone}
+        onChangeText={setPhone}
+      />
+      <Field
+        label="Password"
+        placeholder="At least 8 characters"
+        secureTextEntry
+        autoComplete="new-password"
+        value={password}
+        onChangeText={setPassword}
+        onBlur={() => setFieldErrors((e) => ({ ...e, password: validatePassword(password) }))}
+        error={fieldErrors.password}
+      />
 
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+      {formError ? <Text style={styles.formError}>{formError}</Text> : null}
 
-            <Button title={loading ? 'Creating account…' : 'Create account'} onPress={handleSignUp} disabled={loading} />
-          </Card>
+      <Button title={loading ? 'Creating account…' : 'Create account'} onPress={handleSignUp} disabled={loading} />
 
-          <Text style={styles.footNote}>
-            Already have an account?{' '}
-            <Link href="/" style={styles.footLink}>
-              Sign in
-            </Link>
-          </Text>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <Text style={styles.footNote}>
+        Already have an account?{' '}
+        <Link href="/sign-in" style={styles.footLink}>
+          Sign in
+        </Link>
+      </Text>
+    </AuthLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.bg },
-  scroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: 48 },
-  wrap: { width: '100%', maxWidth: 420, alignSelf: 'center', paddingHorizontal: 24 },
-  eyebrow: {
-    fontFamily: fonts.sansBold,
-    fontSize: 12,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    color: colors.accent,
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  title: {
-    fontFamily: fonts.serif,
-    fontSize: 30,
-    color: colors.text,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontFamily: fonts.sans,
-    fontSize: 14,
-    color: colors.textSoft,
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 32,
-  },
-  error: {
+  title: { fontFamily: fonts.serif, fontSize: 24, color: colors.text, marginBottom: 6 },
+  subtitle: { fontFamily: fonts.sans, fontSize: 14, color: colors.textSoft, lineHeight: 20, marginBottom: 28 },
+  formError: {
     fontFamily: fonts.sans,
     fontSize: 12.5,
     color: colors.danger,
     marginBottom: 4,
     lineHeight: 18,
   },
-  footNote: {
-    fontFamily: fonts.sans,
-    fontSize: 13,
-    color: colors.textSoft,
-    textAlign: 'center',
-    marginTop: 26,
-  },
-  footLink: {
-    fontFamily: fonts.sansBold,
-    color: colors.accent,
-  },
+  footNote: { fontFamily: fonts.sans, fontSize: 13, color: colors.textSoft, marginTop: 24 },
+  footLink: { fontFamily: fonts.sansBold, color: colors.accent },
 });
