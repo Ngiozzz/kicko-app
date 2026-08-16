@@ -30,7 +30,8 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# local env files (Supabase keys etc. — never committed)
+.env
 .env*.local
 
 # typescript
