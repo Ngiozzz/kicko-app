@@ -11,6 +11,17 @@ import { signInContent } from '../src/content/signInContent';
 
 const ROLES: Role[] = ['player', 'owner', 'manager'];
 
+// Supabase's Phone auth provider needs a real SMS provider (Twilio, etc.)
+// configured just to be turned on, even for a password-only login that
+// never sends an OTP — not worth setting up for that. So managers sign
+// in through the already-working Email provider with a deterministic,
+// never-shown placeholder address computed from their phone. Must match
+// managerPhoneToEmail in backend/src/controllers/managers.controller.ts
+// exactly, or a manager's real password stops matching their account.
+function managerPhoneToEmail(phone: string): string {
+  return `${phone.replace(/\D/g, '')}@manager.kicko.internal`;
+}
+
 function parseRole(value: string | string[] | undefined): Role {
   const candidate = Array.isArray(value) ? value[0] : value;
   return (ROLES as string[]).includes(candidate ?? '') ? (candidate as Role) : 'owner';
@@ -30,7 +41,7 @@ function SignUpFootNote({ role }: { role: Role }) {
   );
 }
 
-type FieldErrors = { email?: string; password?: string };
+type FieldErrors = { identifier?: string; password?: string };
 
 export default function SignIn() {
   // /sign-in?role=player|owner|manager — only picks which copy shows on
@@ -40,16 +51,22 @@ export default function SignIn() {
   const { role: roleParam } = useLocalSearchParams<{ role?: string }>();
   const role = parseRole(roleParam);
   const copy = signInContent[role];
+  // Managers are invited by phone, not email (see owner/managers.tsx) —
+  // many don't have one — so they're the one role that signs in with
+  // phone + password instead (see managerPhoneToEmail above for how).
+  const usesPhone = role === 'manager';
 
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  function validateEmail(value: string) {
-    if (!value) return 'Enter your email.';
-    if (!/^\S+@\S+\.\S+$/.test(value)) return 'That email doesn’t look right.';
+  function validateIdentifier(value: string) {
+    if (!value) return usesPhone ? 'Enter your phone number.' : 'Enter your email.';
+    if (usesPhone ? !/^\+?[0-9]{7,15}$/.test(value.trim()) : !/^\S+@\S+\.\S+$/.test(value)) {
+      return usesPhone ? 'That phone number doesn’t look right.' : 'That email doesn’t look right.';
+    }
     return undefined;
   }
 
@@ -60,9 +77,9 @@ export default function SignIn() {
 
   async function handleSignIn() {
     setFormError(null);
-    const errors: FieldErrors = { email: validateEmail(email), password: validatePassword(password) };
+    const errors: FieldErrors = { identifier: validateIdentifier(identifier), password: validatePassword(password) };
     setFieldErrors(errors);
-    if (errors.email || errors.password) return;
+    if (errors.identifier || errors.password) return;
 
     if (!supabaseConfigured) {
       setFormError('Supabase isn’t connected yet — add your project URL and anon key to .env to sign in for real.');
@@ -70,7 +87,9 @@ export default function SignIn() {
     }
 
     setLoading(true);
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    const { error: signInError } = usesPhone
+      ? await supabase.auth.signInWithPassword({ email: managerPhoneToEmail(identifier.trim()), password })
+      : await supabase.auth.signInWithPassword({ email: identifier, password });
     if (signInError) {
       setLoading(false);
       setFormError(signInError.message);
@@ -96,15 +115,15 @@ export default function SignIn() {
       <Text style={styles.subtitle}>Enter your details to get back to your account.</Text>
 
       <Field
-        label="Email"
-        placeholder="you@example.com"
+        label={usesPhone ? 'Phone number' : 'Email'}
+        placeholder={usesPhone ? '+254 700 000 000' : 'you@example.com'}
         autoCapitalize="none"
-        autoComplete="email"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-        onBlur={() => setFieldErrors((e) => ({ ...e, email: validateEmail(email) }))}
-        error={fieldErrors.email}
+        autoComplete={usesPhone ? 'tel' : 'email'}
+        keyboardType={usesPhone ? 'phone-pad' : 'email-address'}
+        value={identifier}
+        onChangeText={setIdentifier}
+        onBlur={() => setFieldErrors((e) => ({ ...e, identifier: validateIdentifier(identifier) }))}
+        error={fieldErrors.identifier}
       />
       <Field
         label="Password"
@@ -117,9 +136,12 @@ export default function SignIn() {
         error={fieldErrors.password}
       />
 
-      <Link href="/forgot-password" style={styles.forgotLink}>
-        Forgot password?
-      </Link>
+      {!usesPhone && (
+        <Link href="/forgot-password" style={styles.forgotLink}>
+          Forgot password?
+        </Link>
+      )}
+      {usesPhone && <Text style={styles.forgotNote}>Forgot your password? Ask your venue owner to set a new one.</Text>}
 
       {formError ? <Text style={styles.formError}>{formError}</Text> : null}
 
@@ -136,6 +158,14 @@ const styles = StyleSheet.create({
   forgotLink: {
     fontFamily: fonts.sansMedium,
     fontSize: 12.5,
+    color: colors.textSoft,
+    textAlign: 'right',
+    marginTop: -8,
+    marginBottom: 8,
+  },
+  forgotNote: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
     color: colors.textSoft,
     textAlign: 'right',
     marginTop: -8,

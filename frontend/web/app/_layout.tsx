@@ -6,6 +6,7 @@ import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_7
 import { Fraunces_500Medium, Fraunces_700Bold } from '@expo-google-fonts/fraunces';
 import { colors } from '@kicko/shared';
 import { injectThemeVars } from '../src/lib/theme';
+import { markActivity } from '../src/lib/sessionActivity';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -33,6 +34,16 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});
   }, [fontsLoaded]);
+
+  // Feeds useRoleGate's inactivity timeout — discrete interaction events
+  // only (not mousemove), so this doesn't fire constantly while idle with
+  // the cursor merely resting over the page.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const events: (keyof DocumentEventMap)[] = ['mousedown', 'keydown', 'touchstart', 'scroll'];
+    events.forEach((e) => document.addEventListener(e, markActivity, { passive: true }));
+    return () => events.forEach((e) => document.removeEventListener(e, markActivity));
+  }, []);
 
   if (!fontsLoaded) {
     return (

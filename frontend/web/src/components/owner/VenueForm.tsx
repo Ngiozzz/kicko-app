@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, radius } from '@kicko/shared';
 import { Button, Field } from '../ui';
 import { SportIcon, Sport } from '../SportIcon';
-import { VenueInput } from '../../lib/venuesApi';
+import { PayoutType, VenueInput } from '../../lib/venuesApi';
 import { VenuePhotoGallery } from './VenuePhotoGallery';
 import { NumberField, TimeField } from './WebInput';
 
@@ -13,6 +13,12 @@ const SPORTS: { sport: Sport; label: string }[] = [
   { sport: 'tennis', label: 'Tennis' },
   { sport: 'padel', label: 'Padel' },
   { sport: 'volleyball', label: 'Volleyball' },
+];
+
+const PAYOUT_TYPES: { type: PayoutType; label: string }[] = [
+  { type: 'phone', label: 'Personal number' },
+  { type: 'paybill', label: 'Paybill' },
+  { type: 'till', label: 'Till number' },
 ];
 
 const AMENITIES = [
@@ -40,6 +46,11 @@ export type VenueFormValue = {
   closingTime: string;
   amenities: string[];
   photos: string[];
+  // Payout details are optional — an owner can add or change these later
+  // via Edit venue, so leaving payoutType null never blocks submission.
+  payoutType: PayoutType | null;
+  payoutNumber: string;
+  payoutAccountRef: string;
 };
 
 const EMPTY: VenueFormValue = {
@@ -52,6 +63,9 @@ const EMPTY: VenueFormValue = {
   closingTime: '22:00',
   amenities: [],
   photos: [],
+  payoutType: null,
+  payoutNumber: '',
+  payoutAccountRef: '',
 };
 
 export function venueInputFromForm(form: VenueFormValue): VenueInput | null {
@@ -70,6 +84,10 @@ export function venueInputFromForm(form: VenueFormValue): VenueInput | null {
   ) {
     return null;
   }
+  // A picked payout type needs a number to go with it — but the whole
+  // section can be left blank entirely (payoutType stays null).
+  if (form.payoutType && !form.payoutNumber.trim()) return null;
+
   return {
     name: form.name.trim(),
     location: form.location.trim(),
@@ -80,6 +98,9 @@ export function venueInputFromForm(form: VenueFormValue): VenueInput | null {
     closing_time: form.closingTime,
     amenities: form.amenities,
     photos: form.photos,
+    payout_type: form.payoutType,
+    payout_number: form.payoutType ? form.payoutNumber.trim() : null,
+    payout_account_ref: form.payoutType === 'paybill' && form.payoutAccountRef.trim() ? form.payoutAccountRef.trim() : null,
   };
 }
 
@@ -181,6 +202,47 @@ export function VenueForm({
       </View>
 
       <View style={styles.field}>
+        <Text style={styles.label}>Payout details</Text>
+        <Text style={styles.helperText}>
+          How you get paid for bookings at this venue. Mobile money only for now — you can add or change this anytime from Edit venue.
+        </Text>
+        <View style={styles.sportRow}>
+          {PAYOUT_TYPES.map(({ type, label }) => {
+            const active = form.payoutType === type;
+            return (
+              <Pressable key={type} onPress={() => setForm((f) => ({ ...f, payoutType: type }))} style={[styles.sportChip, active && styles.sportChipActive]}>
+                <Text style={[styles.sportChipText, active && styles.sportChipTextActive]}>{label}</Text>
+              </Pressable>
+            );
+          })}
+          {form.payoutType && (
+            <Pressable onPress={() => setForm((f) => ({ ...f, payoutType: null, payoutNumber: '', payoutAccountRef: '' }))} style={styles.sportChip}>
+              <Text style={styles.sportChipText}>Clear</Text>
+            </Pressable>
+          )}
+        </View>
+
+        {form.payoutType && (
+          <View style={styles.payoutFields}>
+            <Field
+              label={form.payoutType === 'phone' ? 'M-Pesa number' : form.payoutType === 'paybill' ? 'Paybill number' : 'Till number'}
+              placeholder={form.payoutType === 'phone' ? '+254712345678' : '123456'}
+              value={form.payoutNumber}
+              onChangeText={(payoutNumber) => setForm((f) => ({ ...f, payoutNumber }))}
+            />
+            {form.payoutType === 'paybill' && (
+              <Field
+                label="Account number / reference"
+                placeholder="e.g. venue name or account ref"
+                value={form.payoutAccountRef}
+                onChangeText={(payoutAccountRef) => setForm((f) => ({ ...f, payoutAccountRef }))}
+              />
+            )}
+          </View>
+        )}
+      </View>
+
+      <View style={styles.field}>
         <Text style={styles.label}>Amenities</Text>
         <View style={styles.amenityGrid}>
           {AMENITIES.map((a) => {
@@ -215,6 +277,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 6,
   },
+  helperText: { fontFamily: fonts.sans, fontSize: 11.5, color: colors.textSoft, marginTop: -2, marginBottom: 10, lineHeight: 16 },
+  payoutFields: { marginTop: 12, gap: 4 },
+
   sportRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   sportChip: {
     flexDirection: 'row',

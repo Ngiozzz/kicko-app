@@ -5,6 +5,8 @@ import { colors, fonts, radius } from '@kicko/shared';
 import { LogoMark } from '../Logo';
 import { supabase } from '@kicko/shared';
 import { BookingsIcon, HomeIcon, ManagersIcon, PaymentsIcon, SearchIcon, VenuesIcon } from './icons';
+import { BreadcrumbProvider, useBreadcrumbOverride } from '../../lib/breadcrumbContext';
+import { NotifBell } from '../NotifBell';
 
 type NavItem = { label: string; href: string; icon: (p: { size?: number; color: string }) => ReactElement };
 
@@ -31,8 +33,17 @@ const BREADCRUMBS: Record<string, Crumb[]> = {
   '/owner/settings': [{ label: 'Home', href: '/owner' }, { label: 'Settings' }],
 };
 
+// Static fallback — each venues/[id]/* page overrides its own crumb with
+// the venue's actual name once it loads (see useBreadcrumb in
+// venues/[id]/index.tsx, reviews.tsx, and edit.tsx).
 function breadcrumbFor(pathname: string): Crumb[] {
   if (BREADCRUMBS[pathname]) return BREADCRUMBS[pathname];
+  if (pathname.match(/^\/owner\/venues\/[^/]+\/reviews$/)) {
+    return [{ label: 'Home', href: '/owner' }, { label: 'My Venues', href: '/owner/venues' }, { label: 'Venue' }, { label: 'Reviews' }];
+  }
+  if (pathname.match(/^\/owner\/venues\/[^/]+\/edit$/)) {
+    return [{ label: 'Home', href: '/owner' }, { label: 'My Venues', href: '/owner/venues' }, { label: 'Venue' }, { label: 'Edit venue' }];
+  }
   if (pathname.startsWith('/owner/venues/')) {
     return [{ label: 'Home', href: '/owner' }, { label: 'My Venues', href: '/owner/venues' }, { label: 'Venue' }];
   }
@@ -73,29 +84,23 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   );
 }
 
-function NotifBell() {
-  const [open, setOpen] = useState(false);
-  return (
-    <View>
-      <Pressable onPress={() => setOpen((o) => !o)} style={styles.iconBtn}>
-        <Text style={{ fontSize: 15 }}>🔔</Text>
-      </Pressable>
-      {open && (
-        <View style={styles.notifPreview}>
-          <Text style={styles.notifEmpty}>No notifications yet.</Text>
-        </View>
-      )}
-    </View>
-  );
-}
-
 // Shared sidebar shell for every /owner/* screen — see app/owner/_layout.tsx,
 // which handles the auth/role gate once and wraps all children in this.
 // Ported to match Kicko/docs/owner*.html's chrome (sidebar + topbar) —
 // same structure, honest data where the mockup used placeholder numbers.
 export function OwnerShell({ userName, children }: { userName: string; children: ReactNode }) {
+  return (
+    <BreadcrumbProvider>
+      <OwnerShellInner userName={userName}>{children}</OwnerShellInner>
+    </BreadcrumbProvider>
+  );
+}
+
+// Split out so it can consume the BreadcrumbProvider its own parent renders
+// above it — a component can't read a context it provides in the same pass.
+function OwnerShellInner({ userName, children }: { userName: string; children: ReactNode }) {
   const pathname = usePathname();
-  const crumbs = breadcrumbFor(pathname);
+  const crumbs = useBreadcrumbOverride(pathname) ?? breadcrumbFor(pathname);
   const settingsActive = isActive(pathname, '/owner/settings');
 
   async function handleSignOut() {
@@ -282,29 +287,6 @@ const styles = StyleSheet.create({
   crumbCurrent: { fontFamily: fonts.serifMedium, fontSize: 15, color: colors.text },
 
   topbarActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.bg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  notifPreview: {
-    position: 'absolute',
-    top: 46,
-    right: 0,
-    width: 260,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    padding: 20,
-    zIndex: 55,
-  },
-  notifEmpty: { fontFamily: fonts.sans, fontSize: 13, color: colors.textSoft, textAlign: 'center' },
 
   userChip: {
     flexDirection: 'row',

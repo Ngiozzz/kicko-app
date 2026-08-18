@@ -1,4 +1,4 @@
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
 // Ported directly from the path data in Kicko/docs/owner*.html's inline
 // nav SVGs — same outline style (stroke-width 1.8, round caps/joins).
@@ -75,6 +75,15 @@ export function CloseIcon({ size = 14, color }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
       <Path d="M6 6l12 12M18 6 6 18" />
+    </Svg>
+  );
+}
+
+export function SidebarToggleIcon({ size = 16, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Rect x={3} y={4} width={18} height={16} rx={2} />
+      <Line x1={9} y1={4} x2={9} y2={20} />
     </Svg>
   );
 }

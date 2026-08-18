@@ -5,6 +5,8 @@ import { colors, fonts, radius } from '@kicko/shared';
 import { LogoMark } from '../Logo';
 import { supabase } from '@kicko/shared';
 import { HomeIcon, ManagersIcon, PaymentsIcon, SearchIcon, VenuesIcon } from '../owner/icons';
+import { BreadcrumbProvider, useBreadcrumbOverride } from '../../lib/breadcrumbContext';
+import { NotifBell } from '../NotifBell';
 
 type NavItem = { label: string; href: string; icon: (p: { size?: number; color: string }) => ReactElement };
 
@@ -40,8 +42,30 @@ const BREADCRUMBS: Record<string, Crumb[]> = {
     { label: 'Match sessions' },
   ],
   '/admin-dashboard/settings': [{ label: 'Dashboard', href: '/admin-dashboard' }, { label: 'Settings' }],
+  '/admin-dashboard/settings/role': [
+    { label: 'Dashboard', href: '/admin-dashboard' },
+    { label: 'Settings', href: '/admin-dashboard/settings' },
+    { label: 'Role settings' },
+  ],
+  '/admin-dashboard/settings/fees': [
+    { label: 'Dashboard', href: '/admin-dashboard' },
+    { label: 'Settings', href: '/admin-dashboard/settings' },
+    { label: 'Service fees' },
+  ],
+  '/admin-dashboard/settings/refunds': [
+    { label: 'Dashboard', href: '/admin-dashboard' },
+    { label: 'Settings', href: '/admin-dashboard/settings' },
+    { label: 'Cancellation refunds' },
+  ],
+  '/admin-dashboard/settings/windows': [
+    { label: 'Dashboard', href: '/admin-dashboard' },
+    { label: 'Settings', href: '/admin-dashboard/settings' },
+    { label: 'Match windows' },
+  ],
 };
 
+// Static fallback — the venue detail page overrides its own crumb with the
+// venue's actual name once it loads (see useBreadcrumb in venues/[id].tsx).
 function breadcrumbFor(pathname: string): Crumb[] {
   if (BREADCRUMBS[pathname]) return BREADCRUMBS[pathname];
   if (pathname.startsWith('/admin-dashboard/venues/')) {
@@ -84,28 +108,22 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   );
 }
 
-function NotifBell() {
-  const [open, setOpen] = useState(false);
-  return (
-    <View>
-      <Pressable onPress={() => setOpen((o) => !o)} style={styles.iconBtn}>
-        <Text style={{ fontSize: 15 }}>🔔</Text>
-      </Pressable>
-      {open && (
-        <View style={styles.notifPreview}>
-          <Text style={styles.notifEmpty}>No notifications yet.</Text>
-        </View>
-      )}
-    </View>
-  );
-}
-
 // Shared sidebar shell for every /admin-dashboard/* screen — see
 // app/admin-dashboard/_layout.tsx. Ported from Kicko/docs' admin.html /
 // users.html / venues.html chrome, same structure as OwnerShell.
 export function AdminShell({ userName, children }: { userName: string; children: ReactNode }) {
+  return (
+    <BreadcrumbProvider>
+      <AdminShellInner userName={userName}>{children}</AdminShellInner>
+    </BreadcrumbProvider>
+  );
+}
+
+// Split out so it can consume the BreadcrumbProvider its own parent renders
+// above it — a component can't read a context it provides in the same pass.
+function AdminShellInner({ userName, children }: { userName: string; children: ReactNode }) {
   const pathname = usePathname();
-  const crumbs = breadcrumbFor(pathname);
+  const crumbs = useBreadcrumbOverride(pathname) ?? breadcrumbFor(pathname);
   const settingsActive = isActive(pathname, '/admin-dashboard/settings');
 
   async function handleSignOut() {
@@ -292,29 +310,6 @@ const styles = StyleSheet.create({
   crumbCurrent: { fontFamily: fonts.serifMedium, fontSize: 15, color: colors.text },
 
   topbarActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.bg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  notifPreview: {
-    position: 'absolute',
-    top: 46,
-    right: 0,
-    width: 260,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    padding: 20,
-    zIndex: 55,
-  },
-  notifEmpty: { fontFamily: fonts.sans, fontSize: 13, color: colors.textSoft, textAlign: 'center' },
 
   userChip: {
     flexDirection: 'row',

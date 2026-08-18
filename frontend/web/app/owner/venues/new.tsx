@@ -1,58 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Link, router } from 'expo-router';
 import { colors, fonts, radius, supabase } from '@kicko/shared';
 import { VenueForm, VenueFormValue, venueInputFromForm } from '../../../src/components/owner/VenueForm';
+import { VenuePreviewCard } from '../../../src/components/owner/VenuePreviewCard';
 import { venuesApi } from '../../../src/lib/venuesApi';
-import { SportIcon, Sport } from '../../../src/components/SportIcon';
-
-const SPORT_LABEL: Record<Sport, string> = {
-  football: 'Football',
-  basketball: 'Basketball',
-  tennis: 'Tennis',
-  padel: 'Padel',
-  volleyball: 'Volleyball',
-};
 
 const CHECKLIST = [
   "New listings are reviewed before they go live.",
   'Add photos — listings with photos get more attention.',
   "You can edit pricing and amenities anytime after it's live.",
 ];
-
-function PreviewCard({ form }: { form: VenueFormValue }) {
-  return (
-    <View style={styles.previewCard}>
-      <View style={styles.previewThumb}>
-        {form.photos[0] ? (
-          <Image source={{ uri: form.photos[0] }} style={styles.previewImage} resizeMode="cover" />
-        ) : (
-          form.amenities[0] && (
-            <View style={styles.previewBadge}>
-              <Text style={styles.previewBadgeText}>{form.amenities[0]}</Text>
-            </View>
-          )
-        )}
-      </View>
-      <View style={styles.previewBody}>
-        <Text style={styles.previewName}>{form.name.trim() || 'Untitled venue'}</Text>
-        <Text style={styles.previewMgrTag}>🔑 You'll run this venue</Text>
-        <View style={styles.previewMeta}>
-          {form.sport && <SportIcon sport={form.sport} size={13} />}
-          <Text style={styles.previewMetaText}>
-            {form.sport ? SPORT_LABEL[form.sport] : 'Sport'} · {form.location.trim() || 'Location'}
-          </Text>
-        </View>
-        <View style={styles.previewFoot}>
-          <Text style={styles.previewPrice}>{form.pricePeak ? `From KES ${form.priceOffPeak || form.pricePeak}/hr` : 'Set a rate'}</Text>
-          <View style={styles.previewStatusPill}>
-            <Text style={styles.previewStatusText}>Pending review</Text>
-          </View>
-        </View>
-      </View>
-    </View>
-  );
-}
 
 export default function NewVenue() {
   const [ownerId, setOwnerId] = useState<string | null>(null);
@@ -66,6 +24,9 @@ export default function NewVenue() {
     closingTime: '22:00',
     amenities: [],
     photos: [],
+    payoutType: null,
+    payoutNumber: '',
+    payoutAccountRef: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -134,7 +95,7 @@ export default function NewVenue() {
 
         <View style={styles.sideCol}>
           <Text style={styles.secTitle}>Preview</Text>
-          <PreviewCard form={preview} />
+          <VenuePreviewCard form={preview} statusLabel="Pending review" statusTone="pending" />
           <Text style={styles.previewNote}>This is roughly how your listing will appear to players once it's live.</Text>
 
           <Text style={[styles.secTitle, { marginTop: 32 }]}>Before you submit</Text>
@@ -165,20 +126,6 @@ const styles = StyleSheet.create({
 
   secTitle: { fontFamily: fonts.serifMedium, fontSize: 17, color: colors.text, marginBottom: 14 },
 
-  previewCard: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, overflow: 'hidden' },
-  previewThumb: { height: 110, backgroundColor: colors.accentSoft, justifyContent: 'flex-end', padding: 10 },
-  previewImage: StyleSheet.absoluteFill,
-  previewBadge: { alignSelf: 'flex-start', backgroundColor: 'rgba(30,33,38,0.55)', borderRadius: radius.pill, paddingVertical: 4, paddingHorizontal: 10 },
-  previewBadgeText: { fontFamily: fonts.sansSemiBold, fontSize: 11, color: '#fff' },
-  previewBody: { padding: 16 },
-  previewName: { fontFamily: fonts.serifMedium, fontSize: 15, color: colors.text, marginBottom: 4 },
-  previewMgrTag: { fontFamily: fonts.sansSemiBold, fontSize: 11.5, color: colors.textSoft, marginBottom: 10 },
-  previewMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
-  previewMetaText: { fontFamily: fonts.sans, fontSize: 12.5, color: colors.textSoft },
-  previewFoot: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  previewPrice: { fontFamily: fonts.sansBold, fontSize: 13, color: colors.accent },
-  previewStatusPill: { backgroundColor: colors.surface2, borderRadius: radius.pill, paddingVertical: 4, paddingHorizontal: 10 },
-  previewStatusText: { fontFamily: fonts.sansSemiBold, fontSize: 10.5, color: colors.textSoft },
   previewNote: { fontFamily: fonts.sans, fontSize: 12, color: colors.textSoft, marginTop: 10 },
 
   checklistCard: { gap: 8 },

@@ -1,6 +1,8 @@
-import { Link } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Link, useFocusEffect } from 'expo-router';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, radius } from '@kicko/shared';
+import { adminApi, PaymentsOverview } from '../../../src/lib/adminApi';
 
 function StatCard({ label, value, sub, href, priority }: { label: string; value: string; sub?: string; href?: string; priority?: boolean }) {
   const content = (
@@ -33,17 +35,50 @@ function NavCard({ title, description, href }: { title: string; description: str
 }
 
 export default function AdminPayments() {
+  const [overview, setOverview] = useState<PaymentsOverview | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const data = await adminApi.paymentsOverview();
+      setOverview(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not load payments overview.');
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
+
   return (
     <View>
       <Text style={styles.title}>Payments</Text>
       <Text style={styles.subtitle}>Real money collected, real payouts and refunds — platform-wide.</Text>
 
-      <View style={styles.statsRow}>
-        <StatCard label="Total collected" value="KES 0" sub="From players, all-time" />
-        <StatCard label="Paid out to owners" value="KES 0" />
-        <StatCard label="Refunded to players" value="KES 0" />
-        <StatCard label="Needs attention" value="0" sub="Failed payouts + refunds awaiting follow-up →" href="/admin-dashboard/payments/transactions?filter=attention" priority />
-      </View>
+      {error && <Text style={styles.error}>{error}</Text>}
+      {!overview && !error && (
+        <View style={styles.loading}>
+          <ActivityIndicator color={colors.accent} />
+        </View>
+      )}
+
+      {overview && (
+        <View style={styles.statsRow}>
+          <StatCard label="Total collected" value={`KES ${overview.totalCollected.toLocaleString()}`} sub="From players, all-time" />
+          <StatCard label="Paid out to owners" value={`KES ${overview.paidOut.toLocaleString()}`} />
+          <StatCard label="Refunded to players" value={`KES ${overview.refunded.toLocaleString()}`} />
+          <StatCard
+            label="Needs attention"
+            value={String(overview.needsAttention)}
+            sub="Failed payouts + refunds awaiting follow-up →"
+            href="/admin-dashboard/payments/transactions?filter=attention"
+            priority
+          />
+        </View>
+      )}
 
       <Text style={styles.secTitle}>Go to</Text>
 
@@ -69,6 +104,9 @@ export default function AdminPayments() {
 const styles = StyleSheet.create({
   title: { fontFamily: fonts.serif, fontSize: 26, color: colors.text, marginBottom: 4 },
   subtitle: { fontFamily: fonts.sans, fontSize: 13.5, color: colors.textSoft, maxWidth: 640 },
+
+  loading: { paddingVertical: 30, alignItems: 'center', marginTop: 22 },
+  error: { fontFamily: fonts.sans, fontSize: 13, color: colors.danger, marginTop: 16 },
 
   statsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 18, marginTop: 22, marginBottom: 8 },
   statCard: { flexGrow: 1, flexBasis: 220, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 20 },

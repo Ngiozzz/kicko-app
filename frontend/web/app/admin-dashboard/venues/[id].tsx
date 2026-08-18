@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, fonts, radius } from '@kicko/shared';
 import { adminApi, AdminVenue } from '../../../src/lib/adminApi';
+import { useVenueReviews } from '../../../src/lib/useVenueReviews';
 import { SportIcon, Sport } from '../../../src/components/SportIcon';
+import { StarRating } from '../../../src/components/StarRating';
+import { ReviewCard, ReviewListPanel, LoadMoreButton } from '../../../src/components/ReviewList';
+import { useBreadcrumb } from '../../../src/lib/breadcrumbContext';
 
 const STATUS_LABEL: Record<AdminVenue['status'], string> = {
   pending: 'Pending review',
@@ -20,12 +24,42 @@ function fmtTime(t: string) {
 
 export default function AdminVenueDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const [venue, setVenue] = useState<AdminVenue | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
+  const [deleteConfirming, setDeleteConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [removingReviewId, setRemovingReviewId] = useState<string | null>(null);
+  const [dismissingFlagId, setDismissingFlagId] = useState<string | null>(null);
+  const { reviews, average, count, hasMore, loading: reviewsLoading, loaded: reviewsLoaded, loadMore, removeLocal, replaceLocal } = useVenueReviews(id);
+
+  async function handleRemoveReview(reviewId: string) {
+    setRemovingReviewId(reviewId);
+    try {
+      await adminApi.deleteReview(reviewId);
+      removeLocal(reviewId);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Could not remove this review.');
+    } finally {
+      setRemovingReviewId(null);
+    }
+  }
+
+  async function handleDismissFlag(reviewId: string) {
+    setDismissingFlagId(reviewId);
+    try {
+      const { review } = await adminApi.dismissReviewFlag(reviewId);
+      replaceLocal(review);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Could not dismiss this flag.');
+    } finally {
+      setDismissingFlagId(null);
+    }
+  }
 
   useEffect(() => {
     (async () => {
@@ -38,15 +72,20 @@ export default function AdminVenueDetail() {
     })();
   }, [id]);
 
-  async function handleApprove() {
+  useBreadcrumb(
+    venue ? [{ label: 'Dashboard', href: '/admin-dashboard' }, { label: 'Venues', href: '/admin-dashboard/venues' }, { label: venue.name }] : null
+  );
+
+  async function handleSetStatus(status: 'verified' | 'suspended' | 'pending', reasonText?: string) {
     setBusy(true);
     setActionError(null);
     try {
-      const { venue } = await adminApi.setVenueStatus(id, 'verified');
-      setVenue(venue);
+      const { venue: updated } = await adminApi.setVenueStatus(id, status, reasonText);
+      setVenue(updated);
       setRejecting(false);
+      setReason('');
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Could not verify this venue.');
+      setActionError(err instanceof Error ? err.message : 'Could not update this venue.');
     } finally {
       setBusy(false);
     }
@@ -54,19 +93,21 @@ export default function AdminVenueDetail() {
 
   async function handleReject() {
     if (!reason.trim()) {
-      setActionError('Give a reason for rejecting this venue.');
+      setActionError('Give a reason for suspending this venue.');
       return;
     }
-    setBusy(true);
+    await handleSetStatus('suspended', reason);
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
     setActionError(null);
     try {
-      const { venue } = await adminApi.setVenueStatus(id, 'suspended', reason);
-      setVenue(venue);
-      setRejecting(false);
+      await adminApi.deleteVenue(id);
+      router.replace('/admin-dashboard/venues');
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Could not reject this venue.');
-    } finally {
-      setBusy(false);
+      setActionError(err instanceof Error ? err.message : 'Could not delete this venue.');
+      setDeleting(false);
     }
   }
 
@@ -101,30 +142,51 @@ export default function AdminVenueDetail() {
             {venue.sport} · {venue.location} · Submitted by {venue.owner?.name ?? 'Unknown owner'}
           </Text>
         </View>
-        {venue.status === 'pending' && (
+        {!rejecting && !deleteConfirming && (
           <View style={styles.actions}>
-            <Pressable onPress={() => setRejecting((r) => !r)} disabled={busy} style={styles.rejectBtn}>
-              <Text style={styles.rejectBtnText}>{rejecting ? 'Cancel' : 'Reject'}</Text>
-            </Pressable>
-            {!rejecting && (
-              <Pressable onPress={handleApprove} disabled={busy} style={styles.approveBtn}>
+            {venue.status !== 'verified' && (
+              <Pressable onPress={() => handleSetStatus('verified')} disabled={busy} style={styles.approveBtn}>
                 <Text style={styles.approveBtnText}>{busy ? 'Working…' : 'Approve & verify'}</Text>
               </Pressable>
             )}
+            {venue.status !== 'pending' && (
+              <Pressable onPress={() => handleSetStatus('pending')} disabled={busy} style={styles.unverifyBtn}>
+                <Text style={styles.unverifyBtnText}>{busy ? 'Working…' : 'Unverify'}</Text>
+              </Pressable>
+            )}
+            {venue.status !== 'suspended' && (
+              <Pressable onPress={() => setRejecting(true)} disabled={busy} style={styles.rejectBtn}>
+                <Text style={styles.rejectBtnText}>{venue.status === 'pending' ? 'Reject' : 'Suspend'}</Text>
+              </Pressable>
+            )}
+            <Pressable onPress={() => setDeleteConfirming(true)} disabled={busy} style={styles.deleteBtn}>
+              <Text style={styles.deleteBtnText}>Delete</Text>
+            </Pressable>
+          </View>
+        )}
+        {deleteConfirming && (
+          <View style={styles.actions}>
+            <Text style={styles.deleteConfirmPrompt}>Delete this venue? This can't be undone.</Text>
+            <Pressable onPress={handleDelete} disabled={deleting} style={styles.confirmRejectBtn}>
+              <Text style={styles.confirmRejectBtnText}>{deleting ? 'Deleting…' : 'Confirm delete'}</Text>
+            </Pressable>
+            <Pressable onPress={() => setDeleteConfirming(false)} disabled={deleting}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </Pressable>
           </View>
         )}
       </View>
 
       {venue.status === 'suspended' && venue.rejection_reason && (
         <View style={styles.reasonBanner}>
-          <Text style={styles.reasonBannerLabel}>Rejection reason</Text>
+          <Text style={styles.reasonBannerLabel}>Suspension reason</Text>
           <Text style={styles.reasonBannerText}>{venue.rejection_reason}</Text>
         </View>
       )}
 
       {rejecting && (
         <View style={styles.rejectBox}>
-          <Text style={styles.rejectLabel}>Reason for rejection</Text>
+          <Text style={styles.rejectLabel}>{venue.status === 'pending' ? 'Reason for rejection' : 'Reason for suspension'}</Text>
           <TextInput
             multiline
             numberOfLines={3}
@@ -134,9 +196,14 @@ export default function AdminVenueDetail() {
             onChangeText={setReason}
             style={styles.rejectTextarea}
           />
-          <Pressable onPress={handleReject} disabled={busy} style={styles.confirmRejectBtn}>
-            <Text style={styles.confirmRejectBtnText}>{busy ? 'Working…' : 'Confirm rejection'}</Text>
-          </Pressable>
+          <View style={styles.rejectBoxActions}>
+            <Pressable onPress={handleReject} disabled={busy} style={styles.confirmRejectBtn}>
+              <Text style={styles.confirmRejectBtnText}>{busy ? 'Working…' : venue.status === 'pending' ? 'Confirm rejection' : 'Confirm suspension'}</Text>
+            </Pressable>
+            <Pressable onPress={() => setRejecting(false)} disabled={busy}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </Pressable>
+          </View>
         </View>
       )}
 
@@ -206,6 +273,47 @@ export default function AdminVenueDetail() {
           </View>
         </View>
       </View>
+
+      <View style={styles.reviewsHead}>
+        <Text style={styles.secTitle}>Reviews</Text>
+        {count > 0 && (
+          <View style={styles.reviewsSummary}>
+            <StarRating value={average} size={14} />
+            <Text style={styles.reviewsSummaryText}>
+              {average} ({count} review{count === 1 ? '' : 's'})
+            </Text>
+          </View>
+        )}
+      </View>
+      {!reviewsLoaded ? (
+        <ActivityIndicator color={colors.accent} />
+      ) : reviews.length === 0 ? (
+        <Text style={styles.emptyText}>No reviews yet.</Text>
+      ) : (
+        <>
+          <ReviewListPanel>
+            {reviews.map((r) => (
+              <ReviewCard
+                key={r.id}
+                review={r}
+                actions={
+                  <View style={styles.reviewActions}>
+                    {r.flagged_at && (
+                      <Pressable onPress={() => handleDismissFlag(r.id)} disabled={dismissingFlagId === r.id}>
+                        <Text style={styles.dismissFlagText}>{dismissingFlagId === r.id ? 'Dismissing…' : 'Dismiss flag'}</Text>
+                      </Pressable>
+                    )}
+                    <Pressable onPress={() => handleRemoveReview(r.id)} disabled={removingReviewId === r.id}>
+                      <Text style={styles.removeReviewText}>{removingReviewId === r.id ? 'Removing…' : 'Remove'}</Text>
+                    </Pressable>
+                  </View>
+                }
+              />
+            ))}
+          </ReviewListPanel>
+          {hasMore && <LoadMoreButton onPress={loadMore} loading={reviewsLoading} />}
+        </>
+      )}
     </View>
   );
 }
@@ -226,11 +334,17 @@ const styles = StyleSheet.create({
   statusPillTextVerified: { color: colors.good },
   statusPillTextSuspended: { color: colors.danger },
 
-  actions: { flexDirection: 'row', gap: 10 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   rejectBtn: { backgroundColor: colors.danger, borderRadius: radius.pill, paddingVertical: 11, paddingHorizontal: 18 },
   rejectBtnText: { fontFamily: fonts.sansBold, fontSize: 13, color: '#fff' },
   approveBtn: { backgroundColor: colors.accent, borderRadius: radius.pill, paddingVertical: 11, paddingHorizontal: 18 },
   approveBtnText: { fontFamily: fonts.sansBold, fontSize: 13, color: colors.accentText },
+  unverifyBtn: { borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.pill, paddingVertical: 10, paddingHorizontal: 17 },
+  unverifyBtnText: { fontFamily: fonts.sansSemiBold, fontSize: 13, color: colors.text },
+  deleteBtn: { borderWidth: 1.5, borderColor: colors.danger, borderRadius: radius.pill, paddingVertical: 10, paddingHorizontal: 17 },
+  deleteBtnText: { fontFamily: fonts.sansSemiBold, fontSize: 13, color: colors.danger },
+  deleteConfirmPrompt: { fontFamily: fonts.sans, fontSize: 13, color: colors.text },
+  cancelText: { fontFamily: fonts.sansMedium, fontSize: 13, color: colors.textSoft },
 
   reasonBanner: { backgroundColor: 'rgba(196,69,63,0.08)', borderWidth: 1, borderColor: 'rgba(196,69,63,0.25)', borderRadius: radius.md, padding: 16, marginTop: 16 },
   reasonBannerLabel: { fontFamily: fonts.sansBold, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.danger, marginBottom: 4 },
@@ -250,7 +364,8 @@ const styles = StyleSheet.create({
     minHeight: 80,
     textAlignVertical: 'top',
   },
-  confirmRejectBtn: { alignSelf: 'flex-start', backgroundColor: colors.danger, borderRadius: radius.pill, paddingVertical: 11, paddingHorizontal: 18, marginTop: 12 },
+  rejectBoxActions: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 12 },
+  confirmRejectBtn: { alignSelf: 'flex-start', backgroundColor: colors.danger, borderRadius: radius.pill, paddingVertical: 11, paddingHorizontal: 18 },
   confirmRejectBtnText: { fontFamily: fonts.sansBold, fontSize: 13, color: '#fff' },
 
   gallery: { marginTop: 24, marginBottom: 8 },
@@ -274,4 +389,12 @@ const styles = StyleSheet.create({
   contactCard: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: 16 },
   ownerName: { fontFamily: fonts.sansSemiBold, fontSize: 14, color: colors.text, marginBottom: 4 },
   ownerContact: { fontFamily: fonts.sans, fontSize: 13, color: colors.textSoft },
+
+  reviewsHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 28, marginBottom: 14 },
+  reviewsSummary: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  reviewsSummaryText: { fontFamily: fonts.sans, fontSize: 13, color: colors.textSoft },
+
+  reviewActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  dismissFlagText: { fontFamily: fonts.sansSemiBold, fontSize: 12, color: colors.textSoft },
+  removeReviewText: { fontFamily: fonts.sansSemiBold, fontSize: 12, color: colors.danger },
 });

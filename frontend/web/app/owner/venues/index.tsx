@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Link, useFocusEffect } from 'expo-router';
 import { colors, fonts, radius } from '@kicko/shared';
@@ -43,6 +43,15 @@ export default function OwnerVenues() {
   // "managed" until that feature ships.
   const visible = venues?.filter((v) => (filter === 'managed' ? false : true)) ?? [];
 
+  // Weighted across venues (a venue with more reviews counts more), not a
+  // plain average-of-averages.
+  const overallRating = useMemo(() => {
+    const totalReviews = (venues ?? []).reduce((sum, v) => sum + v.review_count, 0);
+    if (totalReviews === 0) return null;
+    const weighted = (venues ?? []).reduce((sum, v) => sum + v.avg_rating * v.review_count, 0);
+    return +(weighted / totalReviews).toFixed(1);
+  }, [venues]);
+
   return (
     <View>
       <View style={styles.headRow}>
@@ -77,7 +86,7 @@ export default function OwnerVenues() {
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>Avg rating</Text>
-          <Text style={styles.statValue}>—</Text>
+          <Text style={styles.statValue}>{overallRating ?? '—'}</Text>
         </View>
         <Link href="/owner/bookings?filter=pending" asChild>
           <Pressable style={StyleSheet.flatten([styles.statCard, styles.statCardPriority])}>
@@ -143,7 +152,7 @@ export default function OwnerVenues() {
               </View>
               <View style={styles.statLine}>
                 <Text style={styles.statLineText}>0 bookings today</Text>
-                <Text style={styles.statLineText}>★ —</Text>
+                <Text style={styles.statLineText}>{venue.review_count > 0 ? `★ ${venue.avg_rating} (${venue.review_count})` : '★ —'}</Text>
               </View>
               <View style={styles.foot}>
                 <Text style={styles.price}>From KES {venue.price_off_peak.toLocaleString()}/hr</Text>

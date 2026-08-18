@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { apiFetch, colors, fonts, radius } from '@kicko/shared';
-import { Button, Field } from '../../src/components/ui';
-import { isDarkMode, setDarkMode } from '../../src/lib/theme';
+import { Button, Field } from '../../../src/components/ui';
+import { isDarkMode, setDarkMode } from '../../../src/lib/theme';
 
 type Account = { name: string; email: string; phone: string | null };
 
@@ -15,7 +15,7 @@ function SettingsCard({ title, children }: { title: string; children: React.Reac
   );
 }
 
-export default function AdminSettings() {
+export default function AdminRoleSettings() {
   const [account, setAccount] = useState<Account | null>(null);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -64,10 +64,8 @@ export default function AdminSettings() {
 
   return (
     <View>
-      <View style={styles.welcome}>
-        <Text style={styles.welcomeTitle}>Settings</Text>
-        <Text style={styles.welcomeSub}>Manage your admin account and preferences.</Text>
-      </View>
+      <Text style={styles.title}>Role settings</Text>
+      <Text style={styles.subtitle}>Your admin profile and appearance preferences.</Text>
 
       <SettingsCard title="Profile">
         {account === null && !error ? (
@@ -100,9 +98,8 @@ export default function AdminSettings() {
 }
 
 const styles = StyleSheet.create({
-  welcome: { marginBottom: 26 },
-  welcomeTitle: { fontFamily: fonts.serif, fontSize: 26, color: colors.text, marginBottom: 4 },
-  welcomeSub: { fontFamily: fonts.sans, fontSize: 14, color: colors.textSoft },
+  title: { fontFamily: fonts.serif, fontSize: 26, color: colors.text, marginBottom: 4 },
+  subtitle: { fontFamily: fonts.sans, fontSize: 13.5, color: colors.textSoft, marginBottom: 26 },
 
   card: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 24, marginBottom: 20, maxWidth: 560 },
   cardTitle: { fontFamily: fonts.serifMedium, fontSize: 16, color: colors.text, marginBottom: 18 },

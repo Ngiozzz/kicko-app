@@ -1,45 +1,14 @@
-import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { Slot, router } from 'expo-router';
-import { apiFetch, colors, supabase } from '@kicko/shared';
-import { resolveHomeRoute } from '../../src/lib/roleRoute';
+import { Slot } from 'expo-router';
+import { colors } from '@kicko/shared';
+import { useRoleGate } from '../../src/lib/useRoleGate';
 import { OwnerShell } from '../../src/components/owner/OwnerShell';
 
 // Auth/role gate for every /owner/* screen, done once here instead of
-// per-page — same checks DashboardStub does for the single-page roles
-// (player/manager/admin), just centralized since owner now has several
-// screens sharing one sidebar shell.
+// per-page — see useRoleGate for the shared checks (auth, role, and
+// session-inactivity timeout) every role layout applies.
 export default function OwnerLayout() {
-  const [status, setStatus] = useState<'checking' | 'ready'>('checking');
-  const [name, setName] = useState('');
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        router.replace('/sign-in?role=owner');
-        return;
-      }
-      try {
-        const { user } = await apiFetch<{ user: { role: string; name: string } }>('/api/account/me');
-        if (cancelled) return;
-        if (user.role !== 'owner') {
-          router.replace(resolveHomeRoute(user.role));
-          return;
-        }
-        setName(user.name);
-        setStatus('ready');
-      } catch {
-        if (!cancelled) router.replace('/sign-in?role=owner');
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { status, name } = useRoleGate('owner');
 
   if (status === 'checking') {
     return (

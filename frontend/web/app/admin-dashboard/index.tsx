@@ -5,11 +5,14 @@ import { colors, fonts, radius } from '@kicko/shared';
 import { adminApi, AdminStats, AdminVenue } from '../../src/lib/adminApi';
 import { SportIcon, Sport } from '../../src/components/SportIcon';
 
-function StatCard({ label, value, sub, href, priority }: { label: string; value: string; sub?: string; href?: string; priority?: boolean }) {
+const ONE_HOUR_MS = 60 * 60 * 1000;
+
+function StatCard({ label, value, sub, href, tone }: { label: string; value: string; sub?: string; href?: string; tone?: 'accent' | 'danger' }) {
+  const toneStyle = tone === 'danger' ? styles.statLabelDanger : tone === 'accent' ? styles.statLabelAccent : null;
   const content = (
-    <View style={[styles.statCard, priority && styles.statCardPriority]}>
-      <Text style={[styles.statLabel, priority && styles.statLabelAccent]}>{label}</Text>
-      <Text style={[styles.statValue, priority && styles.statLabelAccent]}>{value}</Text>
+    <View style={[styles.statCard, tone === 'accent' && styles.statCardPriority, tone === 'danger' && styles.statCardDanger]}>
+      <Text style={[styles.statLabel, toneStyle]}>{label}</Text>
+      <Text style={[styles.statValue, toneStyle]}>{value}</Text>
       {sub ? <Text style={styles.statSub}>{sub}</Text> : null}
     </View>
   );
@@ -30,13 +33,16 @@ const STATUS_LABEL: Record<AdminVenue['status'], string> = {
 export default function AdminDashboard() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [recentVenues, setRecentVenues] = useState<AdminVenue[] | null>(null);
+  const [recentErrorCount, setRecentErrorCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [statsRes, venuesRes] = await Promise.all([adminApi.stats(), adminApi.listVenues()]);
+      const [statsRes, venuesRes, logsRes] = await Promise.all([adminApi.stats(), adminApi.listVenues(), adminApi.listLogs('error')]);
       setStats(statsRes);
       setRecentVenues(venuesRes.venues.slice(0, 5));
+      const cutoff = Date.now() - ONE_HOUR_MS;
+      setRecentErrorCount(logsRes.logs.filter((l) => new Date(l.timestamp).getTime() >= cutoff).length);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load dashboard data.');
     }
@@ -72,9 +78,16 @@ export default function AdminDashboard() {
               value={String(stats.venuesByStatus.pending)}
               sub="Venue listings awaiting a decision →"
               href="/admin-dashboard/venues?status=pending"
-              priority
+              tone="accent"
             />
             <StatCard label="Verified venues" value={String(stats.venuesByStatus.verified)} />
+            <StatCard
+              label="Errors (last hour)"
+              value={recentErrorCount === null ? '—' : String(recentErrorCount)}
+              sub="Backend 5xx responses →"
+              href="/admin-dashboard/settings/logs"
+              tone={recentErrorCount ? 'danger' : undefined}
+            />
           </View>
 
           <View style={styles.dashGrid}>
@@ -162,8 +175,10 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 18, marginBottom: 36 },
   statCard: { flexGrow: 1, flexBasis: 220, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 20 },
   statCardPriority: { borderColor: colors.accent },
+  statCardDanger: { borderColor: colors.danger },
   statLabel: { fontFamily: fonts.sansSemiBold, fontSize: 12.5, color: colors.textSoft, marginBottom: 14 },
   statLabelAccent: { color: colors.accent },
+  statLabelDanger: { color: colors.danger },
   statValue: { fontFamily: fonts.serif, fontSize: 26, color: colors.text },
   statSub: { fontFamily: fonts.sans, fontSize: 12, color: colors.textSoft, marginTop: 6 },
 

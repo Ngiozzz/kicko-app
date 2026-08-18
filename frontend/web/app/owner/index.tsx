@@ -3,6 +3,8 @@ import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'rea
 import { Link, useFocusEffect } from 'expo-router';
 import { colors, fonts, radius } from '@kicko/shared';
 import { venuesApi, Venue } from '../../src/lib/venuesApi';
+import { bookingsApi, Booking } from '../../src/lib/bookingsApi';
+import { managersApi, Manager } from '../../src/lib/managersApi';
 import { SportIcon, Sport } from '../../src/components/SportIcon';
 
 function StatCard({
@@ -38,16 +40,42 @@ function StatCard({
   );
 }
 
-const BAR_HEIGHTS = [8, 8, 8, 8, 8, 8, 8];
+// Last 7 calendar days' gross bookings, oldest first — a floor height so an
+// empty day still reads as a bar, not a gap that looks like a rendering bug.
+const MIN_BAR_PCT = 6;
+
+function last7DayTotals(bookings: Booking[]): number[] {
+  const days: number[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const day = new Date();
+    day.setHours(0, 0, 0, 0);
+    day.setDate(day.getDate() - i);
+    const next = new Date(day);
+    next.setDate(day.getDate() + 1);
+    const total = bookings
+      .filter((b) => b.payment_status === 'paid' || b.payment_status === 'partially_refunded')
+      .filter((b) => {
+        const at = new Date(b.start_at);
+        return at >= day && at < next;
+      })
+      .reduce((sum, b) => sum + b.total_amount, 0);
+    days.push(total);
+  }
+  return days;
+}
 
 export default function OwnerHome() {
   const [venues, setVenues] = useState<Venue[] | null>(null);
+  const [bookings, setBookings] = useState<Booking[] | null>(null);
+  const [managers, setManagers] = useState<Manager[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const { venues } = await venuesApi.list();
+      const [{ venues }, { bookings }, { managers }] = await Promise.all([venuesApi.list(), bookingsApi.venue(), managersApi.list()]);
       setVenues(venues);
+      setBookings(bookings);
+      setManagers(managers);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load your venues.');
     }
@@ -59,6 +87,17 @@ export default function OwnerHome() {
     }, [load])
   );
 
+  const awaitingPayment = bookings?.filter((b) => b.status === 'pending_payment') ?? [];
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const confirmedThisMonth = bookings?.filter((b) => b.status !== 'cancelled' && b.status !== 'pending_payment' && new Date(b.start_at) >= startOfMonth).length ?? 0;
+  const totalEarnings = bookings?.filter((b) => b.payment_status === 'paid' || b.payment_status === 'partially_refunded').reduce((sum, b) => sum + b.subtotal, 0) ?? 0;
+
+  const grossBookings = bookings?.filter((b) => b.payment_status === 'paid' || b.payment_status === 'partially_refunded').reduce((sum, b) => sum + b.total_amount, 0) ?? 0;
+  const netPayout = bookings?.flatMap((b) => b.payouts ?? []).filter((p) => p.status === 'paid').reduce((sum, p) => sum + p.amount, 0) ?? 0;
+  const barTotals = bookings ? last7DayTotals(bookings) : [];
+  const maxBar = Math.max(1, ...barTotals);
+
   return (
     <View>
       <View style={styles.welcome}>
@@ -67,9 +106,15 @@ export default function OwnerHome() {
 
       <View style={styles.statsRow}>
         <StatCard label="My venues" value={venues ? String(venues.length) : '0'} unit="listed" />
-        <StatCard label="Pending approvals" value="0" sub="Awaiting a decision →" href="/owner/bookings" priority />
-        <StatCard label="Approval turnaround" value="0m" sub="Avg time to decide, across all venues" />
-        <StatCard label="Total earnings" value="KES 0" />
+        <StatCard
+          label="Awaiting payment"
+          value={bookings ? String(awaitingPayment.length) : '0'}
+          sub="Bookings started, not yet paid →"
+          href="/owner/bookings?filter=pending_payment"
+          priority={awaitingPayment.length > 0}
+        />
+        <StatCard label="Confirmed this month" value={String(confirmedThisMonth)} />
+        <StatCard label="Total earnings" value={`KES ${totalEarnings.toLocaleString()}`} sub="Your cut, all-time" />
       </View>
 
       <View style={styles.dashGrid}>
@@ -125,25 +170,36 @@ export default function OwnerHome() {
           <View style={styles.earnCard}>
             <View>
               <Text style={styles.earnLabel}>Gross bookings</Text>
-              <Text style={styles.earnValue}>KES 0</Text>
+              <Text style={styles.earnValue}>KES {grossBookings.toLocaleString()}</Text>
               <Text style={styles.earnNote}>Everything players have actually paid</Text>
             </View>
             <View>
               <Text style={styles.earnLabel}>Net payout</Text>
-              <Text style={styles.earnValue}>KES 0</Text>
+              <Text style={styles.earnValue}>KES {netPayout.toLocaleString()}</Text>
               <Text style={styles.earnNote}>After Kicko's fee — only what's actually landed</Text>
             </View>
           </View>
           <View style={styles.barsCard}>
-            {BAR_HEIGHTS.map((h, i) => (
-              <View key={i} style={[styles.bar, { height: `${h}%` }]} />
+            {(bookings ? barTotals : [0, 0, 0, 0, 0, 0, 0]).map((total, i) => (
+              <View key={i} style={[styles.bar, { height: `${Math.max(MIN_BAR_PCT, (total / maxBar) * 100)}%` }]} />
             ))}
           </View>
 
           <View style={[styles.secHead, { marginTop: 32 }]}>
             <Text style={styles.secTitle}>Pending bookings</Text>
           </View>
-          <Text style={styles.emptyText}>No pending bookings.</Text>
+          {bookings && awaitingPayment.length === 0 && <Text style={styles.emptyText}>No pending bookings.</Text>}
+          {awaitingPayment.slice(0, 5).map((b) => (
+            <View key={b.id} style={styles.listRow}>
+              <View>
+                <Text style={styles.listRowTitle}>{b.venue.name}</Text>
+                <Text style={styles.listRowMetaText}>
+                  {b.player?.name ?? 'Player'} · {new Date(b.start_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}
+                </Text>
+              </View>
+              <Text style={styles.listRowAmount}>KES {b.total_amount.toLocaleString()}</Text>
+            </View>
+          ))}
         </View>
 
         <View style={styles.sideCol}>
@@ -177,7 +233,14 @@ export default function OwnerHome() {
 
           <View style={styles.sideCard}>
             <Text style={styles.sideCardTitle}>My managers</Text>
-            <Text style={styles.emptyText}>No managers yet.</Text>
+            {managers === null && <ActivityIndicator color={colors.accent} />}
+            {managers && managers.length === 0 && <Text style={styles.emptyText}>No managers yet.</Text>}
+            {managers?.map((m, i) => (
+              <View key={m.id} style={[styles.managerRow, i === managers.length - 1 && styles.managerRowLast]}>
+                <Text style={styles.listRowTitle}>{m.name}</Text>
+                <Text style={styles.listRowMetaText}>{m.venue?.name ?? 'Unassigned'}</Text>
+              </View>
+            ))}
           </View>
         </View>
       </View>
@@ -284,4 +347,7 @@ const styles = StyleSheet.create({
   actionTitle: { fontFamily: fonts.sansSemiBold, fontSize: 13.5, color: colors.text },
   actionSub: { fontFamily: fonts.sans, fontSize: 12, color: colors.textSoft },
   actionArrow: { color: colors.textSoft, fontSize: 16 },
+
+  managerRow: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border, gap: 2 },
+  managerRowLast: { borderBottomWidth: 0, paddingBottom: 0 },
 });
