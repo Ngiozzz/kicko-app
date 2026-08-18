@@ -43,14 +43,15 @@ ones depend on earlier ones existing.
 
 ## 4. Africa's Talking (SMS)
 
-- Create an account at africastalking.com. A **sandbox app** exists
-  immediately — no approval needed. Username is literally `sandbox`; the
-  API key is on the sandbox app's dashboard.
-- That's enough to send real SMS today under a shared/default sender ID.
-- When ready for production: create a **Live** app (this is where a
-  custom alphanumeric sender ID like "KICKO" needs approval — can take a
-  few days). Swap `AFRICASTALKING_USERNAME`/`AFRICASTALKING_API_KEY` to
-  the live app's values; no code change needed either way.
+- The **sandbox app** (username `sandbox`) is instant and free, but only
+  simulates delivery — no SMS actually reaches a phone from it. It's for
+  testing your integration code, not for real sending, same as Daraja's
+  sandbox.
+- A **live account** is required for any real delivery. See
+  [africas-talking-live-setup.md](./africas-talking-live-setup.md) for
+  the full walkthrough.
+- Once live, swap `AFRICASTALKING_USERNAME`/`AFRICASTALKING_API_KEY` to
+  the live app's values — no code change needed either way.
 - Code side is already done: `backend/src/services/sms.service.ts`.
 
 ## 5. Deploy the backend to Render
