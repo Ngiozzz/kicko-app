@@ -5,7 +5,7 @@ import { colors, fonts } from '@kicko/shared';
 import { Button, Field } from '../src/components/ui';
 import { AuthLayout } from '../src/components/AuthLayout';
 import { supabase, supabaseConfigured } from '@kicko/shared';
-import { resolveHomeRoute } from '../src/lib/roleRoute';
+import { resolveNext } from '../src/lib/roleRoute';
 import { SignUpRole, signUpContent } from '../src/content/signUpContent';
 
 const ROLES: SignUpRole[] = ['player', 'owner'];
@@ -15,6 +15,10 @@ function parseRole(value: string | string[] | undefined): SignUpRole {
   return (ROLES as string[]).includes(candidate ?? '') ? (candidate as SignUpRole) : 'owner';
 }
 
+function firstParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 type FieldErrors = { name?: string; email?: string; password?: string };
 
 // Web sign-up covers players and owners (/sign-up?role=...). Managers
@@ -22,8 +26,9 @@ type FieldErrors = { name?: string; email?: string; password?: string };
 // directly, admins are provisioned by hand — matching Thurfa's own
 // signup-trigger convention.
 export default function SignUp() {
-  const { role: roleParam } = useLocalSearchParams<{ role?: string }>();
+  const { role: roleParam, next: nextParam } = useLocalSearchParams<{ role?: string; next?: string }>();
   const role = parseRole(roleParam);
+  const next = firstParam(nextParam);
   const copy = signUpContent[role];
 
   const [name, setName] = useState('');
@@ -87,7 +92,7 @@ export default function SignUp() {
     // no need to look it up — but whether we actually have a session
     // depends on whether the project requires email confirmation first.
     if (data.session) {
-      router.replace(resolveHomeRoute(role));
+      router.replace(resolveNext(next, role));
     } else {
       setConfirmEmailSent(true);
     }
@@ -154,7 +159,7 @@ export default function SignUp() {
 
       <Text style={styles.footNote}>
         Already have an account?{' '}
-        <Link href={`/sign-in?role=${role}`} style={styles.footLink}>
+        <Link href={`/sign-in?role=${role}${next ? `&next=${encodeURIComponent(next)}` : ''}`} style={styles.footLink}>
           Sign in
         </Link>
       </Text>

@@ -94,6 +94,9 @@ export function WebNav({ activeRole, onSelectRole }: { activeRole: Role; onSelec
         </View>
 
         <View style={styles.navActions}>
+          <Link href="/venues" style={styles.browseLink}>
+            Browse venues
+          </Link>
           <SignInLink role={activeRole} />
           <NavCta role={activeRole} />
         </View>
@@ -141,6 +144,7 @@ const styles = StyleSheet.create({
   roleTabTextActive: { color: colors.text, fontFamily: fonts.sansSemiBold },
 
   navActions: { flexDirection: 'row', alignItems: 'center', gap: 20 },
+  browseLink: { fontFamily: fonts.sansMedium, fontSize: 13.5, color: colors.textSoft },
   signInText: { fontFamily: fonts.sansBold, fontSize: 13.5, color: colors.text, ...TRANSITION },
   signInTextHovered: { color: colors.accent },
 

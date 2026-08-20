@@ -31,3 +31,21 @@ export const reviewsApi = {
   // Owner-only — flags a review on their own venue for admin attention.
   flag: (reviewId: string, reason?: string) => apiFetch<{ review: Review }>(`/api/reviews/${reviewId}/flag`, { method: 'POST', body: JSON.stringify({ reason }) }),
 };
+
+// What /api/public/venues/:id/reviews actually returns — no booking_id,
+// flagged_at, or flag_reason (moderation-internal, see
+// backend/src/controllers/public.controller.ts's narrower PUBLIC_REVIEW_SELECT).
+export type PublicReview = Pick<Review, 'id' | 'rating' | 'comment' | 'created_at' | 'player'>;
+
+export type PublicVenueReviews = {
+  reviews: PublicReview[];
+  average: number;
+  count: number;
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+};
+
+export const publicReviewsApi = {
+  forVenue: (venueId: string, page = 1) => apiFetch<PublicVenueReviews>(`/api/public/venues/${venueId}/reviews?page=${page}`),
+};

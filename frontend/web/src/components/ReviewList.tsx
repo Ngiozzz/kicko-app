@@ -4,10 +4,15 @@ import { colors, fonts, radius } from '@kicko/shared';
 import { Review } from '../lib/reviewsApi';
 import { StarRating } from './StarRating';
 
+// Narrower than the full authenticated Review — flagged_at/flag_reason are
+// optional so the public review shape (no moderation fields at all, see
+// PublicReview in reviewsApi.ts) satisfies this without a second component.
+type ReviewCardData = Pick<Review, 'rating' | 'comment' | 'created_at' | 'player'> & Partial<Pick<Review, 'flagged_at' | 'flag_reason'>>;
+
 // One review row — `actions` is an optional right-aligned slot so each page
 // (player/owner/admin) can attach its own action (nothing, "Flag",
 // "Remove" + "Dismiss flag") without this component knowing about roles.
-export function ReviewCard({ review, actions }: { review: Review; actions?: ReactNode }) {
+export function ReviewCard({ review, actions }: { review: ReviewCardData; actions?: ReactNode }) {
   return (
     <View style={styles.card}>
       <View style={styles.head}>

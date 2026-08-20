@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 
 import accountRoutes from "./routes/account.routes.js";
 import venuesRoutes from "./routes/venues.routes.js";
+import publicRoutes from "./routes/public.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import bookingsRoutes from "./routes/bookings.routes.js";
 import paymentsRoutes from "./routes/payments.routes.js";
@@ -35,6 +36,7 @@ app.get("/", (req, res) => {
 // Routes
 app.use("/api/account", accountRoutes);
 app.use("/api/venues", venuesRoutes);
+app.use("/api/public", publicRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/bookings", bookingsRoutes);
 app.use("/api/payments", paymentsRoutes);

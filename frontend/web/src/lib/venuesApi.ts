@@ -45,6 +45,13 @@ export type VenueInput = {
 
 export type VenueStats = { totalBookings: number; totalRevenue: number };
 
+// What /api/public/venues* actually returns — deliberately missing
+// owner_id/payout_*/status, which the public backend endpoints never select
+// (see backend/src/controllers/public.controller.ts). Kept as its own type
+// instead of reusing Venue so the frontend can't accidentally assume a
+// public venue has fields it doesn't.
+export type PublicVenue = Omit<Venue, 'owner_id' | 'payout_type' | 'payout_number' | 'payout_account_ref' | 'status' | 'updated_at'>;
+
 export const venuesApi = {
   list: () => apiFetch<{ venues: Venue[] }>('/api/venues'),
   get: (id: string) => apiFetch<{ venue: Venue; stats: VenueStats }>(`/api/venues/${id}`),
@@ -66,4 +73,16 @@ export const exploreApi = {
     apiFetch<{ booked: BookedSlot[] }>(`/api/venues/explore/${id}/availability?date=${date}`),
   availabilityForDate: (date: string) =>
     apiFetch<{ booked: VenueBookedSlot[] }>(`/api/venues/explore-availability?date=${date}`),
+};
+
+// Logged-out venue browsing (see backend/src/routes/public.routes.ts) — no
+// Authorization header required; apiFetch already omits it when there's no
+// Supabase session, so this needs no client-side auth handling of its own.
+export const publicVenuesApi = {
+  list: () => apiFetch<{ venues: PublicVenue[] }>('/api/public/venues'),
+  get: (id: string) => apiFetch<{ venue: PublicVenue }>(`/api/public/venues/${id}`),
+  availability: (id: string, date: string) =>
+    apiFetch<{ booked: BookedSlot[] }>(`/api/public/venues/${id}/availability?date=${date}`),
+  availabilityForDate: (date: string) =>
+    apiFetch<{ booked: VenueBookedSlot[] }>(`/api/public/venues-availability?date=${date}`),
 };

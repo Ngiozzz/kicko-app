@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { View, ActivityIndicator, Platform } from 'react-native';
 import { Stack } from 'expo-router';
+import Head from 'expo-router/head';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { Fraunces_500Medium, Fraunces_700Bold } from '@expo-google-fonts/fraunces';
@@ -45,20 +46,37 @@ export default function RootLayout() {
     return () => events.forEach((e) => document.removeEventListener(e, markActivity));
   }, []);
 
+  // Site-wide fallback title. Individual pages (e.g. app/venues/[id].tsx)
+  // render their own <Head><title> to override this while mounted; this
+  // one stays mounted for the whole app, so once that page unmounts —
+  // navigating to sign-up, sign-in, etc. — the tab title falls back to
+  // this instead of getting stuck on whatever the previous page set.
+  const defaultHead = (
+    <Head>
+      <title>Kicko</title>
+    </Head>
+  );
+
   if (!fontsLoaded) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg }}>
-        <ActivityIndicator color={colors.accent} />
-      </View>
+      <>
+        {defaultHead}
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg }}>
+          <ActivityIndicator color={colors.accent} />
+        </View>
+      </>
     );
   }
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: colors.bg },
-      }}
-    />
+    <>
+      {defaultHead}
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.bg },
+        }}
+      />
+    </>
   );
 }

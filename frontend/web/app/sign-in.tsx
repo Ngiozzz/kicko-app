@@ -5,11 +5,15 @@ import { apiFetch, colors, fonts } from '@kicko/shared';
 import { Button, Field } from '../src/components/ui';
 import { AuthLayout } from '../src/components/AuthLayout';
 import { supabase, supabaseConfigured } from '@kicko/shared';
-import { resolveHomeRoute } from '../src/lib/roleRoute';
+import { resolveNext } from '../src/lib/roleRoute';
 import { Role } from '../src/content/roleContent';
 import { signInContent } from '../src/content/signInContent';
 
 const ROLES: Role[] = ['player', 'owner', 'manager'];
+
+function firstParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
 
 // Supabase's Phone auth provider needs a real SMS provider (Twilio, etc.)
 // configured just to be turned on, even for a password-only login that
@@ -27,14 +31,14 @@ function parseRole(value: string | string[] | undefined): Role {
   return (ROLES as string[]).includes(candidate ?? '') ? (candidate as Role) : 'owner';
 }
 
-function SignUpFootNote({ role }: { role: Role }) {
+function SignUpFootNote({ role, next }: { role: Role; next?: string }) {
   if (role === 'manager') {
     return <Text style={styles.footNote}>Managers don't sign up directly — ask your venue owner to add you.</Text>;
   }
   return (
     <Text style={styles.footNote}>
       New to Kicko?{' '}
-      <Link href={`/sign-up?role=${role}`} style={styles.footLink}>
+      <Link href={`/sign-up?role=${role}${next ? `&next=${encodeURIComponent(next)}` : ''}`} style={styles.footLink}>
         Create an account
       </Link>
     </Text>
@@ -48,8 +52,9 @@ export default function SignIn() {
   // the brand panel and the page title, so it's always clear whose
   // sign-in this is. Defaults to owner when reached with no context
   // (e.g. a bare /sign-in link, or forgot/reset-password's "back" link).
-  const { role: roleParam } = useLocalSearchParams<{ role?: string }>();
+  const { role: roleParam, next: nextParam } = useLocalSearchParams<{ role?: string; next?: string }>();
   const role = parseRole(roleParam);
+  const next = firstParam(nextParam);
   const copy = signInContent[role];
   // Managers are invited by phone, not email (see owner/managers.tsx) —
   // many don't have one — so they're the one role that signs in with
@@ -101,7 +106,7 @@ export default function SignIn() {
     // who's actually signing in.
     try {
       const { user } = await apiFetch<{ user: { role: string } }>('/api/account/me');
-      router.replace(resolveHomeRoute(user.role));
+      router.replace(resolveNext(next, user.role));
     } catch {
       router.replace('/');
     } finally {
@@ -147,7 +152,7 @@ export default function SignIn() {
 
       <Button title={loading ? 'Signing in…' : 'Sign in'} onPress={handleSignIn} disabled={loading} />
 
-      <SignUpFootNote role={role} />
+      <SignUpFootNote role={role} next={next} />
     </AuthLayout>
   );
 }

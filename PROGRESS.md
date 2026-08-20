@@ -96,26 +96,41 @@ only exists on `.vercel.app`, which Google won't let you brand/verify —
 this was investigated and confirmed to be a Google Cloud Console fix,
 not a Supabase setting, despite what it might look like at first).
 
-## Africa's Talking — the immediate next step
+## Africa's Talking — live credentials obtained, one thing still blocking real delivery
 
-User wants this **before** the rest of go-live, specifically to build
-phone/mobile verification. Guide: **`docs/africas-talking-live-setup.md`**.
+Done 2026-08-19: created a "Kicko" Team + live app (username `kicko`) in
+the AT dashboard (their UI has changed — no KYC/ID-upload step exists
+anymore, see updated `docs/africas-talking-live-setup.md`), generated a
+live API key, confirmed it authenticates (`sendSms` gets a real API
+response, not a 401) and put both in `backend/.env`:
+```
+AFRICASTALKING_USERNAME=kicko
+AFRICASTALKING_API_KEY=atsk_...
+```
+Not yet in Render's env — only local `.env` so far.
 
-Key point already confirmed with the user: AT's live account does **not**
-need business registration docs — just a personal ID (National ID or
-passport), separate from and unblocked by the Daraja eCitizen wait
-above. Sandbox (`username: "sandbox"`) does **not** deliver real SMS at
-all (simulation only) — this was a correction I had to make mid-session,
-my first pass at the go-live checklist wrongly said sandbox could send
-real messages.
+**Blocked on**: a real test send to the user's own Safaricom number
+(0703333636) came back `UserInBlacklist` (406) — not a credentials
+problem, it's Safaricom's DND opt-out against promotional SMS from
+AT's shared/generic sender ID, which is what any brand-new AT app sends
+under by default. User explicitly said **hold off** on registering a
+custom sender ID (KES 8,700 one-off + a few days' approval — see
+`docs/africas-talking-live-setup.md` section 6) for now, so real SMS
+delivery to Safaricom numbers without existing promo opt-in is
+unverified. Auth/plumbing is confirmed working; only the "does it
+actually land on a phone" step is unresolved, and it's a Safaricom
+network setting, not something to fix in code.
 
-**Not yet built**: the actual OTP/phone-verification flow. Shape is
-sketched at the bottom of `africas-talking-live-setup.md` — new table
-for pending codes + expiry, new endpoints to send/verify, rate-limiting
-so someone can't spam OTPs at a number they don't own. Needs deciding
+**Not yet built**: the actual OTP/phone-verification flow — this was
+the real reason for getting live SMS working, not the SMS itself. Shape
+is sketched in `docs/africas-talking-live-setup.md` § 7 — new table for
+pending codes + expiry, new endpoints to send/verify, rate-limiting so
+someone can't spam OTPs at a number they don't own. Needs deciding
 whether it's just a signup verification gate, or a full replacement for
-the manager synthetic-email login hack. Build this once the user has
-live AT credentials in hand.
+the manager synthetic-email login hack. Reasonable to build now (auth
+works) even though the sender-ID/DND question is still open, since
+booking/payout SMS notifications have the same DND exposure regardless
+of whether OTP exists.
 
 ## Known accepted risk
 
