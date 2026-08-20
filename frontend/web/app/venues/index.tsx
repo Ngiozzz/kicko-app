@@ -5,6 +5,7 @@ import Head from 'expo-router/head';
 import { colors, fonts, radius } from '@kicko/shared';
 import { publicVenuesApi, PublicVenue, VenueBookedSlot } from '../../src/lib/venuesApi';
 import { SportIcon, Sport } from '../../src/components/SportIcon';
+import { StarRating } from '../../src/components/StarRating';
 import { NumberField } from '../../src/components/owner/WebInput';
 import { dateOptions, hasOpenSlot } from '../../src/lib/slots';
 import { useClickOutside } from '../../src/lib/useClickOutside';
@@ -31,6 +32,63 @@ function FilterChip({ label, active, onPress }: { label: string; active: boolean
       <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{label}</Text>
       <Text style={[styles.filterChev, active && styles.filterChipTextActive]}>▾</Text>
     </Pressable>
+  );
+}
+
+// Its own component (not inlined in the grid .map) so each card can hold
+// its own hover state — a flat, static grid of gradient tiles read as
+// wallpaper rather than something to click, so hovering now lifts the
+// card, zooms its photo, and reveals a "View venue" cue.
+function VenueCard({ venue }: { venue: PublicVenue }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <Link href={`/venues/${venue.id}`} asChild>
+      <Pressable
+        style={StyleSheet.flatten([styles.card, hovered && styles.cardHovered])}
+        onHoverIn={() => setHovered(true)}
+        onHoverOut={() => setHovered(false)}
+      >
+        <View style={styles.thumb}>
+          {venue.photos[0] ? (
+            <Image
+              source={{ uri: venue.photos[0] }}
+              style={[StyleSheet.absoluteFill, styles.thumbImage, hovered && styles.thumbImageHovered] as any}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.thumbPlaceholder}>
+              <SportIcon sport={venue.sport as Sport} size={56} />
+            </View>
+          )}
+          {venue.amenities[0] && (
+            <View style={styles.thumbBadge}>
+              <Text style={styles.thumbBadgeText}>{venue.amenities[0]}</Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.cardBody}>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.cardTitle}>{venue.name}</Text>
+            {venue.review_count > 0 && (
+              <View style={styles.cardRating}>
+                <StarRating value={venue.avg_rating} size={11} />
+                <Text style={styles.cardRatingText}>{venue.avg_rating}</Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.cardMeta}>
+            <SportIcon sport={venue.sport as Sport} size={13} />
+            <Text style={styles.cardMetaText}>
+              {venue.sport} · {venue.location}
+            </Text>
+          </View>
+          <View style={styles.cardFoot}>
+            <Text style={styles.cardPrice}>From KES {venue.price_off_peak.toLocaleString()}/hr</Text>
+            <Text style={[styles.cardCta, hovered && styles.cardCtaHovered]}>View venue →</Text>
+          </View>
+        </View>
+      </Pressable>
+    </Link>
   );
 }
 
@@ -284,26 +342,7 @@ export default function PublicVenues() {
 
         <View style={styles.grid}>
           {sorted.map((venue) => (
-            <Link key={venue.id} href={`/venues/${venue.id}`} asChild>
-              <Pressable style={styles.card}>
-                <View style={styles.thumb}>
-                  {venue.photos[0] && <Image source={{ uri: venue.photos[0] }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
-                  {venue.amenities[0] && (
-                    <View style={styles.thumbBadge}>
-                      <Text style={styles.thumbBadgeText}>{venue.amenities[0]}</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.cardTitle}>{venue.name}</Text>
-                <View style={styles.cardMeta}>
-                  <SportIcon sport={venue.sport as Sport} size={13} />
-                  <Text style={styles.cardMetaText}>
-                    {venue.sport} · {venue.location}
-                  </Text>
-                </View>
-                <Text style={styles.cardPrice}>From KES {venue.price_off_peak.toLocaleString()}/hr</Text>
-              </Pressable>
-            </Link>
+            <VenueCard key={venue.id} venue={venue} />
           ))}
         </View>
       </View>
@@ -394,12 +433,47 @@ const styles = StyleSheet.create({
   emptyText: { fontFamily: fonts.sans, fontSize: 13.5, color: colors.textSoft, paddingVertical: 20 },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 22 },
-  card: { flexGrow: 1, flexBasis: 260, maxWidth: 340, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, overflow: 'hidden' },
-  thumb: { height: 140, backgroundImage: `linear-gradient(135deg, ${colors.accent}, transparent)` } as any,
+  card: {
+    flexGrow: 1,
+    flexBasis: 260,
+    maxWidth: 340,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    cursor: 'pointer',
+    transitionProperty: 'transform, box-shadow, border-color',
+    transitionDuration: '0.2s',
+    transitionTimingFunction: 'ease',
+  } as any,
+  cardHovered: {
+    transform: [{ translateY: -5 }],
+    borderColor: colors.accent,
+    boxShadow: '0 18px 34px rgba(0,0,0,0.32)',
+  } as any,
+  thumb: { height: 150, backgroundImage: `linear-gradient(135deg, ${colors.accent}, ${colors.surface2})`, overflow: 'hidden' } as any,
+  thumbPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', opacity: 0.5 },
+  thumbImage: { transitionProperty: 'transform', transitionDuration: '0.35s', transitionTimingFunction: 'ease' } as any,
+  thumbImageHovered: { transform: [{ scale: 1.08 }] } as any,
   thumbBadge: { position: 'absolute', top: 10, left: 10, backgroundColor: 'rgba(30,33,38,0.55)', borderRadius: radius.pill, paddingVertical: 4, paddingHorizontal: 10 },
   thumbBadgeText: { fontFamily: fonts.sansBold, fontSize: 10.5, color: '#fff' },
-  cardTitle: { fontFamily: fonts.serifMedium, fontSize: 16, color: colors.text, marginTop: 14, marginHorizontal: 16 },
-  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, marginHorizontal: 16 },
+  cardBody: { padding: 16 },
+  cardTitleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
+  cardTitle: { flex: 1, fontFamily: fonts.serifMedium, fontSize: 16, color: colors.text },
+  cardRating: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  cardRatingText: { fontFamily: fonts.sansSemiBold, fontSize: 11.5, color: colors.textSoft },
+  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
   cardMetaText: { fontFamily: fonts.sans, fontSize: 12.5, color: colors.textSoft, textTransform: 'capitalize' },
-  cardPrice: { fontFamily: fonts.sansBold, fontSize: 13, color: colors.accent, marginTop: 12, marginHorizontal: 16, marginBottom: 16 },
+  cardFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 },
+  cardPrice: { fontFamily: fonts.sansBold, fontSize: 13, color: colors.accent },
+  cardCta: {
+    fontFamily: fonts.sansSemiBold,
+    fontSize: 12,
+    color: colors.textSoft,
+    transitionProperty: 'color, transform',
+    transitionDuration: '0.2s',
+    transitionTimingFunction: 'ease',
+  } as any,
+  cardCtaHovered: { color: colors.accent, transform: [{ translateX: 2 }] } as any,
 });

@@ -4,6 +4,7 @@ import { Link, useFocusEffect } from 'expo-router';
 import { colors, fonts, radius } from '@kicko/shared';
 import { adminApi, AdminStats, AdminVenue } from '../../src/lib/adminApi';
 import { SportIcon, Sport } from '../../src/components/SportIcon';
+import { useIsMobile } from '../../src/lib/useIsMobile';
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
@@ -31,6 +32,7 @@ const STATUS_LABEL: Record<AdminVenue['status'], string> = {
 };
 
 export default function AdminDashboard() {
+  const isMobile = useIsMobile();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [recentVenues, setRecentVenues] = useState<AdminVenue[] | null>(null);
   const [recentErrorCount, setRecentErrorCount] = useState<number | null>(null);
@@ -91,7 +93,7 @@ export default function AdminDashboard() {
           </View>
 
           <View style={styles.dashGrid}>
-            <View style={styles.mainCol}>
+            <View style={[styles.mainCol, isMobile && styles.mainColMobile]}>
               <View style={styles.secHead}>
                 <Text style={styles.secTitle}>Recent venues</Text>
                 <Link href="/admin-dashboard/venues" asChild>
@@ -135,7 +137,7 @@ export default function AdminDashboard() {
               ))}
             </View>
 
-            <View style={styles.sideCol}>
+            <View style={[styles.sideCol, isMobile && styles.sideColMobile]}>
               <View style={styles.sideCard}>
                 <Text style={styles.sideCardTitle}>Users by role</Text>
                 {(['player', 'owner', 'manager', 'admin'] as const).map((role, i, arr) => (
@@ -185,6 +187,8 @@ const styles = StyleSheet.create({
   dashGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 28, alignItems: 'flex-start' },
   mainCol: { flex: 1.65, minWidth: 320 },
   sideCol: { flex: 1, minWidth: 260 },
+  mainColMobile: { minWidth: 0, flexBasis: '100%' },
+  sideColMobile: { minWidth: 0, flexBasis: '100%' },
 
   secHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 18, flexWrap: 'wrap', gap: 10 },
   secTitle: { fontFamily: fonts.serifMedium, fontSize: 19, color: colors.text },

@@ -6,6 +6,9 @@ import { LogoMark } from '../Logo';
 import { supabase } from '@kicko/shared';
 import { BookingsIcon, HomeIcon } from '../owner/icons';
 import { NotifBell } from '../NotifBell';
+import { useIsMobile } from '../../lib/useIsMobile';
+import { MobileTabBar, MOBILE_TAB_BAR_HEIGHT } from '../MobileTabBar';
+import { MobileAccountMenu } from '../MobileAccountMenu';
 
 type NavItem = { label: string; href: string; icon: (p: { size?: number; color: string }) => ReactElement };
 
@@ -63,6 +66,7 @@ export function ManagerShell({ userName, children }: { userName: string; childre
   const pathname = usePathname();
   const crumbs = BREADCRUMBS[pathname] ?? [{ label: 'Home' }];
   const settingsActive = isActive(pathname, '/manager/settings');
+  const isMobile = useIsMobile();
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -71,6 +75,7 @@ export function ManagerShell({ userName, children }: { userName: string; childre
 
   return (
     <View style={styles.root}>
+      {!isMobile && (
       <View style={styles.sidebar}>
         <Link href="/" asChild>
           <Pressable style={styles.logoBlock}>
@@ -103,48 +108,69 @@ export function ManagerShell({ userName, children }: { userName: string; childre
           </Link>
         </View>
       </View>
+      )}
 
       <View style={styles.mainContent}>
         <View style={styles.topbar}>
-          <View style={styles.breadcrumb}>
-            {crumbs.map((c, i) => {
-              const isCurrent = i === crumbs.length - 1;
-              return (
-                <View key={c.label + i} style={styles.crumbGroup}>
-                  {i > 0 && <Text style={styles.crumbSep}>/</Text>}
-                  {isCurrent || !c.href ? (
-                    <Text style={isCurrent ? styles.crumbCurrent : styles.crumbLink}>{c.label}</Text>
-                  ) : (
-                    <CrumbLink href={c.href} label={c.label} />
-                  )}
-                </View>
-              );
-            })}
-          </View>
+          {isMobile ? (
+            <Text style={styles.crumbCurrent}>{crumbs[crumbs.length - 1]?.label}</Text>
+          ) : (
+            <View style={styles.breadcrumb}>
+              {crumbs.map((c, i) => {
+                const isCurrent = i === crumbs.length - 1;
+                return (
+                  <View key={c.label + i} style={styles.crumbGroup}>
+                    {i > 0 && <Text style={styles.crumbSep}>/</Text>}
+                    {isCurrent || !c.href ? (
+                      <Text style={isCurrent ? styles.crumbCurrent : styles.crumbLink}>{c.label}</Text>
+                    ) : (
+                      <CrumbLink href={c.href} label={c.label} />
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          )}
 
           <View style={styles.topbarActions}>
             <NotifBell />
-            <Link href="/manager/settings" asChild>
-              <Pressable style={styles.userChip}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{userName.charAt(0).toUpperCase()}</Text>
-                </View>
-                <View>
-                  <Text style={styles.userName}>{userName.split(' ')[0]}</Text>
-                  <Text style={styles.userRole}>Manager</Text>
-                </View>
-              </Pressable>
-            </Link>
-            <Pressable onPress={handleSignOut}>
-              <Text style={styles.signOutText}>Sign out</Text>
-            </Pressable>
+            {isMobile ? (
+              <MobileAccountMenu
+                userName={userName}
+                roleLabel="Manager"
+                items={[{ label: 'Settings', href: '/manager/settings' }]}
+                onSignOut={handleSignOut}
+              />
+            ) : (
+              <>
+                <Link href="/manager/settings" asChild>
+                  <Pressable style={styles.userChip}>
+                    <View style={styles.avatar}>
+                      <Text style={styles.avatarText}>{userName.charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <View>
+                      <Text style={styles.userName}>{userName.split(' ')[0]}</Text>
+                      <Text style={styles.userRole}>Manager</Text>
+                    </View>
+                  </Pressable>
+                </Link>
+                <Pressable onPress={handleSignOut}>
+                  <Text style={styles.signOutText}>Sign out</Text>
+                </Pressable>
+              </>
+            )}
           </View>
         </View>
 
-        <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={isMobile ? [styles.contentInner, styles.contentInnerMobile] : styles.contentInner}
+        >
           {children}
         </ScrollView>
       </View>
+
+      {isMobile && <MobileTabBar items={NAV_ITEMS} isActive={(href) => isActive(pathname, href)} />}
     </View>
   );
 }
@@ -240,4 +266,5 @@ const styles = StyleSheet.create({
 
   content: { flex: 1 },
   contentInner: { maxWidth: 1280, width: '100%', alignSelf: 'center', padding: 32, paddingBottom: 90, flexGrow: 1 },
+  contentInnerMobile: { padding: 18, paddingBottom: 90 + MOBILE_TAB_BAR_HEIGHT },
 });

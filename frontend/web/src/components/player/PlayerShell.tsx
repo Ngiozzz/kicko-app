@@ -7,6 +7,9 @@ import { supabase } from '@kicko/shared';
 import { BookingsIcon, HomeIcon, ManagersIcon, SearchIcon, SettingsIcon, SidebarToggleIcon } from '../owner/icons';
 import { BreadcrumbProvider, useBreadcrumbOverride } from '../../lib/breadcrumbContext';
 import { NotifBell } from '../NotifBell';
+import { useIsMobile } from '../../lib/useIsMobile';
+import { MobileTabBar, MOBILE_TAB_BAR_HEIGHT } from '../MobileTabBar';
+import { MobileAccountMenu } from '../MobileAccountMenu';
 
 type NavItem = { label: string; href: string; icon: (p: { size?: number; color: string }) => ReactElement };
 
@@ -105,6 +108,7 @@ function PlayerShellInner({ userName, children }: { userName: string; children: 
   const pathname = usePathname();
   const crumbs = useBreadcrumbOverride(pathname) ?? breadcrumbFor(pathname);
   const settingsActive = isActive(pathname, '/player/settings');
+  const isMobile = useIsMobile();
   const [collapsed, setCollapsed] = useState(
     () => typeof window !== 'undefined' && localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'collapsed'
   );
@@ -124,6 +128,7 @@ function PlayerShellInner({ userName, children }: { userName: string; children: 
 
   return (
     <View style={styles.root}>
+      {!isMobile && (
       <View style={[styles.sidebar, collapsed && styles.sidebarCollapsed]}>
         <Link href="/" asChild>
           <Pressable style={collapsed ? { ...styles.logoBlock, ...styles.logoBlockCollapsed } : styles.logoBlock}>
@@ -169,53 +174,81 @@ function PlayerShellInner({ userName, children }: { userName: string; children: 
           </View>
         )}
       </View>
+      )}
 
       <View style={styles.mainContent}>
         <View style={styles.topbar}>
           <View style={styles.topbarLeft}>
-            <Pressable onPress={toggleSidebar} style={styles.sidebarToggleBtn}>
-              <View style={collapsed ? styles.sidebarToggleIconRotated : undefined}>
-                <SidebarToggleIcon size={16} color={colors.textSoft} />
+            {!isMobile && (
+              <Pressable onPress={toggleSidebar} style={styles.sidebarToggleBtn}>
+                <View style={collapsed ? styles.sidebarToggleIconRotated : undefined}>
+                  <SidebarToggleIcon size={16} color={colors.textSoft} />
+                </View>
+              </Pressable>
+            )}
+            {isMobile ? (
+              <Text style={styles.crumbCurrent}>{crumbs[crumbs.length - 1]?.label}</Text>
+            ) : (
+              <View style={styles.breadcrumb}>
+                {crumbs.map((c, i) => {
+                  const isCurrent = i === crumbs.length - 1;
+                  return (
+                    <View key={c.label + i} style={styles.crumbGroup}>
+                      {i > 0 && <Text style={styles.crumbSep}>/</Text>}
+                      {isCurrent || !c.href ? (
+                        <Text style={isCurrent ? styles.crumbCurrent : styles.crumbLink}>{c.label}</Text>
+                      ) : (
+                        <CrumbLink href={c.href} label={c.label} />
+                      )}
+                    </View>
+                  );
+                })}
               </View>
-            </Pressable>
-            <View style={styles.breadcrumb}>
-              {crumbs.map((c, i) => {
-                const isCurrent = i === crumbs.length - 1;
-                return (
-                  <View key={c.label + i} style={styles.crumbGroup}>
-                    {i > 0 && <Text style={styles.crumbSep}>/</Text>}
-                    {isCurrent || !c.href ? (
-                      <Text style={isCurrent ? styles.crumbCurrent : styles.crumbLink}>{c.label}</Text>
-                    ) : (
-                      <CrumbLink href={c.href} label={c.label} />
-                    )}
-                  </View>
-                );
-              })}
-            </View>
+            )}
           </View>
 
           <View style={styles.topbarActions}>
             <NotifBell />
-            <View style={styles.userChip}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{userName.charAt(0).toUpperCase()}</Text>
-              </View>
-              <View>
-                <Text style={styles.userName}>{userName.split(' ')[0]}</Text>
-                <Text style={styles.userRole}>Player</Text>
-              </View>
-            </View>
-            <Pressable onPress={handleSignOut}>
-              <Text style={styles.signOutText}>Sign out</Text>
-            </Pressable>
+            {isMobile ? (
+              <MobileAccountMenu
+                userName={userName}
+                roleLabel="Player"
+                items={[{ label: 'Settings', href: '/player/settings' }, { label: 'Help Center' }, { label: 'Documentation' }]}
+                onSignOut={handleSignOut}
+              />
+            ) : (
+              <>
+                <View style={styles.userChip}>
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>{userName.charAt(0).toUpperCase()}</Text>
+                  </View>
+                  <View>
+                    <Text style={styles.userName}>{userName.split(' ')[0]}</Text>
+                    <Text style={styles.userRole}>Player</Text>
+                  </View>
+                </View>
+                <Pressable onPress={handleSignOut}>
+                  <Text style={styles.signOutText}>Sign out</Text>
+                </Pressable>
+              </>
+            )}
           </View>
         </View>
 
-        <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={isMobile ? [styles.contentInner, styles.contentInnerMobile] : styles.contentInner}
+        >
           {children}
         </ScrollView>
       </View>
+
+      {isMobile && (
+        <MobileTabBar
+          items={[...OVERVIEW_ITEMS, ...ACTIVITY_ITEMS]}
+          isActive={(href) => isActive(pathname, href)}
+        />
+      )}
     </View>
   );
 }
@@ -327,4 +360,5 @@ const styles = StyleSheet.create({
 
   content: { flex: 1 },
   contentInner: { maxWidth: 1280, width: '100%', alignSelf: 'center', padding: 32, paddingBottom: 90, flexGrow: 1 },
+  contentInnerMobile: { padding: 18, paddingBottom: 90 + MOBILE_TAB_BAR_HEIGHT },
 });

@@ -6,6 +6,8 @@ import { exploreApi } from '../../src/lib/venuesApi';
 import { bookingsApi, Booking } from '../../src/lib/bookingsApi';
 import { SportIcon, Sport } from '../../src/components/SportIcon';
 import type { Venue } from '../../src/lib/venuesApi';
+import { useIsMobile } from '../../src/lib/useIsMobile';
+import { MOBILE_TAB_BAR_HEIGHT } from '../../src/components/MobileTabBar';
 
 function StatCard({ label, value, unit, sub }: { label: string; value: string; unit?: string; sub?: string }) {
   return (
@@ -28,6 +30,7 @@ function statusLabel(b: Booking): string {
 }
 
 export default function PlayerHome() {
+  const isMobile = useIsMobile();
   const [venues, setVenues] = useState<Venue[] | null>(null);
   const [bookings, setBookings] = useState<Booking[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +75,7 @@ export default function PlayerHome() {
       </View>
 
       <View style={styles.dashGrid}>
-        <View style={styles.mainCol}>
+        <View style={[styles.mainCol, isMobile && styles.mainColMobile]}>
           {venues === null && !error && (
             <View style={styles.loading}>
               <ActivityIndicator color={colors.accent} />
@@ -143,7 +146,7 @@ export default function PlayerHome() {
           </View>
         </View>
 
-        <View style={styles.sideCol}>
+        <View style={[styles.sideCol, isMobile && styles.sideColMobile]}>
           <View style={styles.sideCard}>
             <Text style={styles.sideCardTitle}>⚡ Quick actions</Text>
             <Link href="/player/explore" asChild>
@@ -200,7 +203,7 @@ export default function PlayerHome() {
       </View>
 
       <Link href="/player/explore" asChild>
-        <Pressable style={styles.fab}>
+        <Pressable style={StyleSheet.flatten([styles.fab, isMobile && styles.fabMobile])}>
           <Text style={styles.fabText}>+</Text>
         </Pressable>
       </Link>
@@ -225,6 +228,8 @@ const styles = StyleSheet.create({
   dashGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 28, alignItems: 'flex-start' },
   mainCol: { flex: 1.65, minWidth: 320 },
   sideCol: { flex: 1, minWidth: 260 },
+  mainColMobile: { minWidth: 0, flexBasis: '100%' },
+  sideColMobile: { minWidth: 0, flexBasis: '100%' },
 
   spotlight: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 22, overflow: 'hidden', marginBottom: 32 },
   spotlightImg: { height: 200, backgroundColor: colors.accentSoft },
@@ -283,5 +288,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     boxShadow: '0 10px 24px rgba(0,0,0,0.25)',
   } as any,
+  fabMobile: { bottom: 32 + MOBILE_TAB_BAR_HEIGHT },
   fabText: { fontFamily: fonts.sansBold, fontSize: 26, color: colors.accentText, lineHeight: 28 },
 });

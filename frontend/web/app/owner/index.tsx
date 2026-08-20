@@ -6,6 +6,7 @@ import { venuesApi, Venue } from '../../src/lib/venuesApi';
 import { bookingsApi, Booking } from '../../src/lib/bookingsApi';
 import { managersApi, Manager } from '../../src/lib/managersApi';
 import { SportIcon, Sport } from '../../src/components/SportIcon';
+import { useIsMobile } from '../../src/lib/useIsMobile';
 
 function StatCard({
   label,
@@ -65,6 +66,7 @@ function last7DayTotals(bookings: Booking[]): number[] {
 }
 
 export default function OwnerHome() {
+  const isMobile = useIsMobile();
   const [venues, setVenues] = useState<Venue[] | null>(null);
   const [bookings, setBookings] = useState<Booking[] | null>(null);
   const [managers, setManagers] = useState<Manager[] | null>(null);
@@ -118,7 +120,7 @@ export default function OwnerHome() {
       </View>
 
       <View style={styles.dashGrid}>
-        <View style={styles.mainCol}>
+        <View style={[styles.mainCol, isMobile && styles.mainColMobile]}>
           <View style={styles.secHead}>
             <Text style={styles.secTitle}>My venues</Text>
             <View style={styles.secHeadActions}>
@@ -202,7 +204,7 @@ export default function OwnerHome() {
           ))}
         </View>
 
-        <View style={styles.sideCol}>
+        <View style={[styles.sideCol, isMobile && styles.sideColMobile]}>
           <View style={styles.sideCard}>
             <Text style={styles.sideCardTitle}>⚡ Quick actions</Text>
             <Link href="/owner/venues/new" asChild>
@@ -272,6 +274,8 @@ const styles = StyleSheet.create({
   dashGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 28, alignItems: 'flex-start' },
   mainCol: { flex: 1.65, minWidth: 320 },
   sideCol: { flex: 1, minWidth: 260 },
+  mainColMobile: { minWidth: 0, flexBasis: '100%' },
+  sideColMobile: { minWidth: 0, flexBasis: '100%' },
 
   secHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 18, flexWrap: 'wrap', gap: 10 },
   secTitle: { fontFamily: fonts.serifMedium, fontSize: 19, color: colors.text },
