@@ -10,6 +10,7 @@ import { NotifBell } from '../NotifBell';
 import { useIsMobile } from '../../lib/useIsMobile';
 import { MobileTabBar, MOBILE_TAB_BAR_HEIGHT } from '../MobileTabBar';
 import { MobileAccountMenu } from '../MobileAccountMenu';
+import { Avatar } from '../Avatar';
 
 type NavItem = { label: string; href: string; icon: (p: { size?: number; color: string }) => ReactElement };
 
@@ -94,17 +95,35 @@ function NavLink({ item, active, collapsed }: { item: NavItem; active: boolean; 
 // nav, search box, notif bell, user chip.
 const SIDEBAR_STORAGE_KEY = 'kicko-sidebar';
 
-export function PlayerShell({ userName, children }: { userName: string; children: ReactNode }) {
+export function PlayerShell({
+  userName,
+  avatarUrl,
+  children,
+}: {
+  userName: string;
+  avatarUrl?: string | null;
+  children: ReactNode;
+}) {
   return (
     <BreadcrumbProvider>
-      <PlayerShellInner userName={userName}>{children}</PlayerShellInner>
+      <PlayerShellInner userName={userName} avatarUrl={avatarUrl}>
+        {children}
+      </PlayerShellInner>
     </BreadcrumbProvider>
   );
 }
 
 // Split out so it can consume the BreadcrumbProvider its own parent renders
 // above it — a component can't read a context it provides in the same pass.
-function PlayerShellInner({ userName, children }: { userName: string; children: ReactNode }) {
+function PlayerShellInner({
+  userName,
+  avatarUrl,
+  children,
+}: {
+  userName: string;
+  avatarUrl?: string | null;
+  children: ReactNode;
+}) {
   const pathname = usePathname();
   const crumbs = useBreadcrumbOverride(pathname) ?? breadcrumbFor(pathname);
   const settingsActive = isActive(pathname, '/player/settings');
@@ -212,6 +231,7 @@ function PlayerShellInner({ userName, children }: { userName: string; children: 
             {isMobile ? (
               <MobileAccountMenu
                 userName={userName}
+                avatarUrl={avatarUrl}
                 roleLabel="Player"
                 items={[{ label: 'Settings', href: '/player/settings' }, { label: 'Help Center' }, { label: 'Documentation' }]}
                 onSignOut={handleSignOut}
@@ -219,9 +239,7 @@ function PlayerShellInner({ userName, children }: { userName: string; children: 
             ) : (
               <>
                 <View style={styles.userChip}>
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>{userName.charAt(0).toUpperCase()}</Text>
-                  </View>
+                  <Avatar name={userName} avatarUrl={avatarUrl} />
                   <View>
                     <Text style={styles.userName}>{userName.split(' ')[0]}</Text>
                     <Text style={styles.userRole}>Player</Text>

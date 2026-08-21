@@ -8,7 +8,7 @@ import { OwnerShell } from '../../src/components/owner/OwnerShell';
 // per-page — see useRoleGate for the shared checks (auth, role, and
 // session-inactivity timeout) every role layout applies.
 export default function OwnerLayout() {
-  const { status, name } = useRoleGate('owner');
+  const { status, name, avatarUrl } = useRoleGate('owner');
 
   if (status === 'checking') {
     return (
@@ -19,7 +19,7 @@ export default function OwnerLayout() {
   }
 
   return (
-    <OwnerShell userName={name}>
+    <OwnerShell userName={name} avatarUrl={avatarUrl}>
       <Slot />
     </OwnerShell>
   );

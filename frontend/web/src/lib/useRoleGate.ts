@@ -27,6 +27,7 @@ const SIGN_IN_HREF: Record<Role, string> = {
 export function useRoleGate(expectedRole: Role) {
   const [status, setStatus] = useState<'checking' | 'ready'>('checking');
   const [name, setName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,7 +46,9 @@ export function useRoleGate(expectedRole: Role) {
         return;
       }
       try {
-        const { user } = await apiFetch<{ user: { role: string; name: string } }>('/api/account/me');
+        const { user } = await apiFetch<{ user: { role: string; name: string; avatar_url: string | null } }>(
+          '/api/account/me'
+        );
         if (cancelled) return;
         if (user.role !== expectedRole) {
           router.replace(resolveHomeRoute(user.role));
@@ -53,6 +56,7 @@ export function useRoleGate(expectedRole: Role) {
         }
         markActivity();
         setName(user.name);
+        setAvatarUrl(user.avatar_url);
         setStatus('ready');
       } catch {
         if (!cancelled) router.replace(SIGN_IN_HREF[expectedRole]);
@@ -63,5 +67,5 @@ export function useRoleGate(expectedRole: Role) {
     };
   }, [expectedRole]);
 
-  return { status, name };
+  return { status, name, avatarUrl };
 }

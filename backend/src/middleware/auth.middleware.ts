@@ -16,6 +16,10 @@ export interface AuthedUser {
   // Manager-only — the single venue they're assigned to (see
   // managers.controller.ts). Null for every other role.
   venue_id: string | null;
+  // Set from the OAuth provider's profile photo on signup (Google, etc.)
+  // — null for email/password accounts and any provider that doesn't
+  // supply one.
+  avatar_url: string | null;
 }
 
 declare global {
@@ -27,7 +31,7 @@ declare global {
   }
 }
 
-const USER_COLUMNS = "id, role, name, email, phone, suspended, sport, position, owner_id, venue_id";
+const USER_COLUMNS = "id, role, name, email, phone, suspended, sport, position, owner_id, venue_id, avatar_url";
 
 /**
  * Verifies the Supabase access token sent from any client (web, mobile,

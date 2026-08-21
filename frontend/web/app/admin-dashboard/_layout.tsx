@@ -9,7 +9,7 @@ import { AdminShell } from '../../src/components/admin/AdminShell';
 // visitors bounce to the dedicated admin sign-in page (not the public
 // /sign-in — admins never self-register, see app/admin.tsx).
 export default function AdminLayout() {
-  const { status, name } = useRoleGate('admin');
+  const { status, name, avatarUrl } = useRoleGate('admin');
 
   if (status === 'checking') {
     return (
@@ -20,7 +20,7 @@ export default function AdminLayout() {
   }
 
   return (
-    <AdminShell userName={name}>
+    <AdminShell userName={name} avatarUrl={avatarUrl}>
       <Slot />
     </AdminShell>
   );

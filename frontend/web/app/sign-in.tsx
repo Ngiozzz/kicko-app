@@ -4,6 +4,7 @@ import { Link, router, useLocalSearchParams } from 'expo-router';
 import { apiFetch, colors, fonts } from '@kicko/shared';
 import { Button, Field } from '../src/components/ui';
 import { AuthLayout } from '../src/components/AuthLayout';
+import { GoogleSignInSection } from '../src/components/GoogleSignInButton';
 import { supabase, supabaseConfigured } from '@kicko/shared';
 import { resolveNext } from '../src/lib/roleRoute';
 import { Role } from '../src/content/roleContent';
@@ -151,6 +152,8 @@ export default function SignIn() {
       {formError ? <Text style={styles.formError}>{formError}</Text> : null}
 
       <Button title={loading ? 'Signing in…' : 'Sign in'} onPress={handleSignIn} disabled={loading} />
+
+      {role !== 'manager' && <GoogleSignInSection role={role} next={next} />}
 
       <SignUpFootNote role={role} next={next} />
     </AuthLayout>

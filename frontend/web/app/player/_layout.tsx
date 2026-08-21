@@ -7,7 +7,7 @@ import { PlayerShell } from '../../src/components/player/PlayerShell';
 // Auth/role gate for every /player/* screen — see useRoleGate for the
 // shared checks (auth, role, session-inactivity timeout).
 export default function PlayerLayout() {
-  const { status, name } = useRoleGate('player');
+  const { status, name, avatarUrl } = useRoleGate('player');
 
   if (status === 'checking') {
     return (
@@ -18,7 +18,7 @@ export default function PlayerLayout() {
   }
 
   return (
-    <PlayerShell userName={name}>
+    <PlayerShell userName={name} avatarUrl={avatarUrl}>
       <Slot />
     </PlayerShell>
   );

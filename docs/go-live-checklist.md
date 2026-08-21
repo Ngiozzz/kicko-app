@@ -8,7 +8,7 @@ ones depend on earlier ones existing.
 
 ## 1. Buy the domain
 
-- Register **kicko.co.ke** through a KENIC-accredited registrar (e.g.
+- Register **kicko-app.co.ke** through a KENIC-accredited registrar (e.g.
   Truehost Kenya, Kenya Web Experts, Sasahost, HostPinnacle) or an
   international registrar that resells `.co.ke` (Namecheap supports it).
   `.co.ke` sometimes asks for a KRA PIN / local contact at registration —
@@ -18,17 +18,31 @@ ones depend on earlier ones existing.
 
 ## 2. Put the domain on Cloudflare
 
-- Add `kicko.co.ke` as a site in Cloudflare (free plan).
+- Add `kicko-app.co.ke` as a site in Cloudflare (free plan).
 - Cloudflare gives you two nameservers — set those at the registrar where
   you bought the domain. Propagation is usually under an hour, can take
   up to 24h.
-- Once active, turn on **Email Routing** (Cloudflare dashboard → Email):
-  create `hello@kicko.co.ke` → forward to your real inbox. Free, takes
-  five minutes, unrelated to the transactional email below.
+- For real send-and-reply inboxes (not just forwarding), sign up for
+  **Zoho Mail's free plan** instead of Cloudflare Email Routing —
+  Cloudflare's own Email Routing only forwards incoming mail, it has no
+  way to send. Zoho gives you the MX/SPF/DKIM records to add in
+  Cloudflare's DNS tab.
+- Two real mailboxes to start: **`info@kicko-app.co.ke`** (general
+  contact/support) and **`finance@kicko-app.co.ke`** (payments/payouts —
+  owners will ask about payouts even before Daraja is approved). Create
+  both as real Zoho users.
+- `no-reply@kicko-app.co.ke` needs no mailbox at all — it's send-only via
+  Resend (see step 3), verified through the domain's SPF/DKIM, not a
+  Zoho seat.
+- Optional, free as Zoho aliases into `info@` whenever wanted, no rush:
+  `admin@` (account-holder address for Vercel/Render/Cloudflare/Zoho/
+  registrar billing + renewal notices, instead of a personal inbox),
+  `privacy@` (referenced from `app/privacy.tsx`), `security@`
+  (responsible-disclosure contact).
 
 ## 3. Resend (transactional email)
 
-- Create a Resend account, add `kicko.co.ke` as a sending domain.
+- Create a Resend account, add `kicko-app.co.ke` as a sending domain.
 - Resend gives you SPF/DKIM/DMARC DNS records to add — add them in
   Cloudflare's DNS tab exactly as shown. Don't let this collide with the
   Email Routing records from step 2; Resend's setup flow tells you if
@@ -37,7 +51,7 @@ ones depend on earlier ones existing.
   DNS propagates).
 - Generate an API key → this is `RESEND_API_KEY`.
 - `EMAIL_FROM` should be something on the verified domain, e.g.
-  `Kicko <no-reply@kicko.co.ke>`.
+  `Kicko <no-reply@kicko-app.co.ke>`.
 - Code side is already done: `backend/src/services/email.service.ts`
   sends for real once `RESEND_API_KEY` is set, logs to console otherwise.
 
@@ -81,23 +95,23 @@ ones depend on earlier ones existing.
 
 ## 7. Point the domain at both
 
-- In Vercel: project → Domains → add `kicko.co.ke` and `www.kicko.co.ke`.
+- In Vercel: project → Domains → add `kicko-app.co.ke` and `www.kicko-app.co.ke`.
   Vercel shows the exact A/CNAME records to add — add them in Cloudflare
   DNS (proxy status "DNS only" if Vercel's setup asks for that).
 - In Render: add a custom domain too if you want the API on
-  `api.kicko.co.ke` instead of the `.onrender.com` URL — same idea, add
+  `api.kicko-app.co.ke` instead of the `.onrender.com` URL — same idea, add
   the CNAME Render gives you in Cloudflare.
 - Back in Render's env vars, set `ALLOWED_ORIGINS` to
-  `https://kicko.co.ke,https://www.kicko.co.ke` now that the real origin
+  `https://kicko-app.co.ke,https://www.kicko-app.co.ke` now that the real origin
   is known, and redeploy.
-- Update `EXPO_PUBLIC_API_URL` in Vercel to `https://api.kicko.co.ke` (or
+- Update `EXPO_PUBLIC_API_URL` in Vercel to `https://api.kicko-app.co.ke` (or
   the `.onrender.com` URL if you skipped the custom API domain) and
   redeploy.
 
 ## 8. Once the domain is live — revisit Google OAuth branding
 
 This was blocked earlier because the app only existed on `.vercel.app`,
-which Google won't let you brand or verify. With `kicko.co.ke` real and
+which Google won't let you brand or verify. With `kicko-app.co.ke` real and
 owned, go back to Google Cloud Console → OAuth consent screen and add it
 as an authorized domain, upload the app logo/name — this is what actually
 fixes the "unverified app" / wrong-name screen users saw during sign-in
@@ -111,5 +125,5 @@ via Google, not anything in Supabase.
   email and SMS both arrive on a real phone/inbox.
 - Cancel a booking — confirm the cancellation email arrives.
 - As admin, verify/suspend a venue — confirm the owner gets an email.
-- Check Cloudflare Email Routing by sending to `hello@kicko.co.ke`
-  manually — confirm it lands in your real inbox.
+- Check the Zoho Mail inboxes by sending to and replying from
+  `info@kicko-app.co.ke` manually — confirm both directions work.

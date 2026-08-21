@@ -10,6 +10,7 @@ import { NotifBell } from '../NotifBell';
 import { useIsMobile } from '../../lib/useIsMobile';
 import { MobileTabBar, MOBILE_TAB_BAR_HEIGHT } from '../MobileTabBar';
 import { MobileAccountMenu } from '../MobileAccountMenu';
+import { Avatar } from '../Avatar';
 
 type NavItem = { label: string; href: string; icon: (p: { size?: number; color: string }) => ReactElement };
 
@@ -91,17 +92,35 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
 // which handles the auth/role gate once and wraps all children in this.
 // Ported to match Kicko/docs/owner*.html's chrome (sidebar + topbar) —
 // same structure, honest data where the mockup used placeholder numbers.
-export function OwnerShell({ userName, children }: { userName: string; children: ReactNode }) {
+export function OwnerShell({
+  userName,
+  avatarUrl,
+  children,
+}: {
+  userName: string;
+  avatarUrl?: string | null;
+  children: ReactNode;
+}) {
   return (
     <BreadcrumbProvider>
-      <OwnerShellInner userName={userName}>{children}</OwnerShellInner>
+      <OwnerShellInner userName={userName} avatarUrl={avatarUrl}>
+        {children}
+      </OwnerShellInner>
     </BreadcrumbProvider>
   );
 }
 
 // Split out so it can consume the BreadcrumbProvider its own parent renders
 // above it — a component can't read a context it provides in the same pass.
-function OwnerShellInner({ userName, children }: { userName: string; children: ReactNode }) {
+function OwnerShellInner({
+  userName,
+  avatarUrl,
+  children,
+}: {
+  userName: string;
+  avatarUrl?: string | null;
+  children: ReactNode;
+}) {
   const pathname = usePathname();
   const crumbs = useBreadcrumbOverride(pathname) ?? breadcrumbFor(pathname);
   const settingsActive = isActive(pathname, '/owner/settings');
@@ -190,6 +209,7 @@ function OwnerShellInner({ userName, children }: { userName: string; children: R
             {isMobile ? (
               <MobileAccountMenu
                 userName={userName}
+                avatarUrl={avatarUrl}
                 roleLabel="Owner"
                 items={[
                   { label: 'Managers', href: '/owner/managers' },
@@ -203,9 +223,7 @@ function OwnerShellInner({ userName, children }: { userName: string; children: R
               <>
                 <Link href="/owner/settings" asChild>
                   <Pressable style={styles.userChip}>
-                    <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>{userName.charAt(0).toUpperCase()}</Text>
-                    </View>
+                    <Avatar name={userName} avatarUrl={avatarUrl} />
                     <View>
                       <Text style={styles.userName}>{userName.split(' ')[0]}</Text>
                       <Text style={styles.userRole}>Owner</Text>

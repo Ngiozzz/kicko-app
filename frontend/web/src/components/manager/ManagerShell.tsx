@@ -9,6 +9,7 @@ import { NotifBell } from '../NotifBell';
 import { useIsMobile } from '../../lib/useIsMobile';
 import { MobileTabBar, MOBILE_TAB_BAR_HEIGHT } from '../MobileTabBar';
 import { MobileAccountMenu } from '../MobileAccountMenu';
+import { Avatar } from '../Avatar';
 
 type NavItem = { label: string; href: string; icon: (p: { size?: number; color: string }) => ReactElement };
 
@@ -62,7 +63,15 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
 // scaled-down sibling of OwnerShell (a manager runs exactly one venue in
 // this app's data model, so there's no venue switcher, no "Venues" or
 // "Managers" nav section, and no venue search box).
-export function ManagerShell({ userName, children }: { userName: string; children: ReactNode }) {
+export function ManagerShell({
+  userName,
+  avatarUrl,
+  children,
+}: {
+  userName: string;
+  avatarUrl?: string | null;
+  children: ReactNode;
+}) {
   const pathname = usePathname();
   const crumbs = BREADCRUMBS[pathname] ?? [{ label: 'Home' }];
   const settingsActive = isActive(pathname, '/manager/settings');
@@ -137,6 +146,7 @@ export function ManagerShell({ userName, children }: { userName: string; childre
             {isMobile ? (
               <MobileAccountMenu
                 userName={userName}
+                avatarUrl={avatarUrl}
                 roleLabel="Manager"
                 items={[{ label: 'Settings', href: '/manager/settings' }]}
                 onSignOut={handleSignOut}
@@ -145,9 +155,7 @@ export function ManagerShell({ userName, children }: { userName: string; childre
               <>
                 <Link href="/manager/settings" asChild>
                   <Pressable style={styles.userChip}>
-                    <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>{userName.charAt(0).toUpperCase()}</Text>
-                    </View>
+                    <Avatar name={userName} avatarUrl={avatarUrl} />
                     <View>
                       <Text style={styles.userName}>{userName.split(' ')[0]}</Text>
                       <Text style={styles.userRole}>Manager</Text>

@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-const FROM = process.env.EMAIL_FROM ?? "Kicko <no-reply@kicko.co.ke>";
+const FROM = process.env.EMAIL_FROM ?? "Kicko <no-reply@kicko-app.co.ke>";
 
 /**
  * Sends via Resend when RESEND_API_KEY is set; otherwise logs to the

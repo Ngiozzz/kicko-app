@@ -4,6 +4,7 @@ import { Link, router, useLocalSearchParams } from 'expo-router';
 import { colors, fonts } from '@kicko/shared';
 import { Button, Field } from '../src/components/ui';
 import { AuthLayout } from '../src/components/AuthLayout';
+import { GoogleSignInSection } from '../src/components/GoogleSignInButton';
 import { supabase, supabaseConfigured } from '@kicko/shared';
 import { resolveNext } from '../src/lib/roleRoute';
 import { SignUpRole, signUpContent } from '../src/content/signUpContent';
@@ -154,6 +155,8 @@ export default function SignUp() {
           {formError ? <Text style={styles.formError}>{formError}</Text> : null}
 
           <Button title={loading ? 'Creating account…' : 'Create account'} onPress={handleSignUp} disabled={loading} />
+
+          <GoogleSignInSection role={role} next={next} />
         </>
       )}
 

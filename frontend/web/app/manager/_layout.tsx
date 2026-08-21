@@ -9,7 +9,7 @@ import { ManagerShell } from '../../src/components/manager/ManagerShell';
 // self-register (see owner/managers.tsx), so an unauthenticated visitor
 // bounces to the manager sign-in page specifically, not the generic one.
 export default function ManagerLayout() {
-  const { status, name } = useRoleGate('manager');
+  const { status, name, avatarUrl } = useRoleGate('manager');
 
   if (status === 'checking') {
     return (
@@ -20,7 +20,7 @@ export default function ManagerLayout() {
   }
 
   return (
-    <ManagerShell userName={name}>
+    <ManagerShell userName={name} avatarUrl={avatarUrl}>
       <Slot />
     </ManagerShell>
   );

@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Link } from 'expo-router';
 import { colors, fonts, radius } from '@kicko/shared';
 import { useClickOutside } from '../lib/useClickOutside';
+import { Avatar } from './Avatar';
 
 export type AccountMenuItem = { label: string; href?: string };
 
@@ -14,11 +15,13 @@ export type AccountMenuItem = { label: string; href?: string };
 // "Documentation" footer rows).
 export function MobileAccountMenu({
   userName,
+  avatarUrl,
   roleLabel,
   items,
   onSignOut,
 }: {
   userName: string;
+  avatarUrl?: string | null;
   roleLabel: string;
   items: AccountMenuItem[];
   onSignOut: () => void;
@@ -29,8 +32,8 @@ export function MobileAccountMenu({
 
   return (
     <View style={styles.wrap} ref={ref as any}>
-      <Pressable style={styles.avatar} onPress={() => setOpen((v) => !v)}>
-        <Text style={styles.avatarText}>{userName.charAt(0).toUpperCase()}</Text>
+      <Pressable onPress={() => setOpen((v) => !v)}>
+        <Avatar name={userName} avatarUrl={avatarUrl} />
       </Pressable>
 
       {open && (

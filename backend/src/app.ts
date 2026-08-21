@@ -22,7 +22,7 @@ dotenv.config();
 const app = express();
 
 // ALLOWED_ORIGINS unset (local dev) => allow any origin. Set in production
-// to a comma-separated list, e.g. https://kicko.co.ke,https://www.kicko.co.ke
+// to a comma-separated list, e.g. https://kicko-app.co.ke,https://www.kicko-app.co.ke
 const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",").map((o) => o.trim()).filter(Boolean);
 app.use(cors(allowedOrigins?.length ? { origin: allowedOrigins } : {}));
 app.use(express.json());
