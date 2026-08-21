@@ -58,9 +58,10 @@ export async function confirmPayment(req: Request, res: Response) {
       link: `/player/bookings/${booking.id}`,
     });
 
-    const { data: player } = await supabase.from("users").select("email").eq("id", payment.payer_id).maybeSingle();
+    const { data: player } = await supabase.from("users").select("name, email").eq("id", payment.payer_id).maybeSingle();
     if (player?.email) {
       await sendTemplatedEmail("booking_confirmed", player.email, {
+        name: player.name,
         venueName: booking.venue.name,
         when,
         amount: booking.total_amount.toLocaleString(),

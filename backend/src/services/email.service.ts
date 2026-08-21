@@ -73,7 +73,7 @@ const RAW_VARS = new Set(["commentBlock"]);
 export const FALLBACK_TEMPLATES: Record<EmailTemplateKey, { subject: string; html: string }> = {
   booking_confirmed: {
     subject: "Booking confirmed",
-    html: '<h2 style="margin:0 0 12px;">Booking confirmed</h2><p>Your slot at <strong>{{venueName}}</strong> is booked for <strong>{{when}}</strong>.</p><p>Amount paid: <strong>KES {{amount}}</strong></p>',
+    html: '<h2 style="margin:0 0 12px;">Booking confirmed</h2><p>Hi {{name}},</p><p>Your slot at <strong>{{venueName}}</strong> is booked for <strong>{{when}}</strong>.</p><p>Amount paid: <strong>KES {{amount}}</strong></p>',
   },
   booking_cancelled: {
     subject: "Booking cancelled",
@@ -107,7 +107,7 @@ export const FALLBACK_TEMPLATES: Record<EmailTemplateKey, { subject: string; htm
 
 /** Sample values for every placeholder any template key uses — powers the admin "send test" and preview actions. */
 export const SAMPLE_VARS: Record<EmailTemplateKey, Record<string, string>> = {
-  booking_confirmed: { venueName: "Test Turf", when: "Sat, Aug 22 · 6:00–7:00 PM", amount: "2,000" },
+  booking_confirmed: { name: "Glenn", venueName: "Test Turf", when: "Sat, Aug 22 · 6:00–7:00 PM", amount: "2,000" },
   booking_cancelled: { venueName: "Test Turf", refundLine: "A full refund of KES 2,000 has been issued." },
   new_booking: { venueName: "Test Turf", when: "Sat, Aug 22 · 6:00–7:00 PM", amount: "2,000" },
   payout_paid: { venueName: "Test Turf", amount: "1,800" },
