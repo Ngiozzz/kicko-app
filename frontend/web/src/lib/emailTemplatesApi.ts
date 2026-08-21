@@ -41,11 +41,12 @@ export const emailTemplatesApi = {
     apiFetch<{ template: EmailTemplate }>(`/api/admin/email-templates/${key}`, { method: 'DELETE' }),
   // Sends whatever draft is passed (falls back to the saved/default copy
   // server-side if omitted) — lets "send test" work before the admin has
-  // saved their edits.
-  sendTest: (key: EmailTemplateKey, draft?: { subject: string; html: string }) =>
+  // saved their edits. `to` defaults server-side to the admin's own
+  // account email when omitted.
+  sendTest: (key: EmailTemplateKey, draft: { subject: string; html: string }, to?: string) =>
     apiFetch<{ sentTo: string }>(`/api/admin/email-templates/${key}/send-test`, {
       method: 'POST',
-      body: JSON.stringify(draft ?? {}),
+      body: JSON.stringify({ ...draft, to }),
     }),
   // Renders unsaved subject/html through the exact same path a real send
   // uses, with sample data filled in — powers the editor's live preview

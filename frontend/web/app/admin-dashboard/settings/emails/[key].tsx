@@ -125,6 +125,7 @@ export default function AdminEmailTemplateEditor() {
   const [saved, setSaved] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [testSentTo, setTestSentTo] = useState<string | null>(null);
+  const [testEmail, setTestEmail] = useState('');
   const [sendingTest, setSendingTest] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -206,7 +207,7 @@ export default function AdminEmailTemplateEditor() {
     setActionError(null);
     setTestSentTo(null);
     try {
-      const res = await emailTemplatesApi.sendTest(key, { subject, html });
+      const res = await emailTemplatesApi.sendTest(key, { subject, html }, testEmail.trim() || undefined);
       setTestSentTo(res.sentTo);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Could not send a test email.');
@@ -298,6 +299,19 @@ export default function AdminEmailTemplateEditor() {
           {saved ? <Text style={styles.saved}>Saved.</Text> : null}
           {testSentTo ? <Text style={styles.saved}>Test sent to {testSentTo}.</Text> : null}
 
+          <View style={styles.testRow}>
+            <TextInput
+              value={testEmail}
+              onChangeText={setTestEmail}
+              placeholder="Send test to… (defaults to your own account)"
+              placeholderTextColor={colors.textSoft}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              style={styles.testInput}
+            />
+          </View>
+
           <View style={styles.actions}>
             <ActionButton icon={SaveIcon} label={saving ? 'Saving…' : 'Save changes'} onPress={handleSave} disabled={saving} variant="primary" />
             <ActionButton icon={ImageIcon} label={uploadingImage ? 'Uploading…' : 'Add image'} onPress={pickImage} disabled={uploadingImage} />
@@ -371,6 +385,19 @@ const styles = StyleSheet.create({
   varsBox: { backgroundColor: colors.accentSoft, borderRadius: radius.md, padding: 12, marginBottom: 18 },
   varsLabel: { fontFamily: fonts.sansSemiBold, fontSize: 10, color: colors.accent, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6 },
   varsList: { fontFamily: 'monospace' as any, fontSize: 12, color: colors.text },
+
+  testRow: { marginBottom: 12 },
+  testInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bg,
+    borderRadius: radius.pill,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    fontFamily: fonts.sans,
+    fontSize: 12.5,
+    color: colors.text,
+  },
 
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
 

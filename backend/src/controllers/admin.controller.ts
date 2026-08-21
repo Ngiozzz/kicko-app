@@ -489,18 +489,23 @@ export async function previewDraftEmailTemplate(req: Request, res: Response) {
   res.status(200).json(rendered);
 }
 
-/** Sends `key` to the calling admin's own email, rendered with sample data — from the given draft if one's passed, otherwise the saved (or fallback) copy. */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Sends `key`, rendered with sample data, to any address the admin types in (their own account's email by default) — from the given draft if one's passed, otherwise the saved (or fallback) copy. */
 export async function sendTestEmailTemplate(req: Request, res: Response) {
   if (!requireAdmin(req, res)) return;
 
   const { key } = req.params;
   if (!isEmailTemplateKey(key)) return res.status(404).json({ error: "Unknown email template." });
-  if (!req.user!.email) return res.status(400).json({ error: "Your account has no email on file to send the test to." });
 
-  const { subject, html } = req.body ?? {};
+  const { subject, html, to } = req.body ?? {};
   const draft = typeof subject === "string" && typeof html === "string" ? { subject, html } : undefined;
 
+  const recipient = typeof to === "string" && to.trim() ? to.trim() : req.user!.email;
+  if (!recipient) return res.status(400).json({ error: "No email address to send the test to." });
+  if (!EMAIL_RE.test(recipient)) return res.status(400).json({ error: "That doesn't look like a valid email address." });
+
   const rendered = await renderEmailTemplate(key, SAMPLE_VARS[key], draft);
-  await sendEmail({ to: req.user!.email, ...rendered });
-  res.status(200).json({ sentTo: req.user!.email });
+  await sendEmail({ to: recipient, ...rendered });
+  res.status(200).json({ sentTo: recipient });
 }
