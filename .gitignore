@@ -37,6 +37,10 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# regenerated from the live API on every build — see
+# frontend/web/scripts/generate-sitemap.mjs
+frontend/web/public/sitemap.xml
+
 # generated native folders
 /ios
 /android

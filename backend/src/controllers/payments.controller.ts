@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { supabase } from "../config/supabase.js";
 import { recomputeSessionFunding } from "./sessions.controller.js";
 import { notify } from "../services/notifications.service.js";
-import { sendEmail, emailTemplates } from "../services/email.service.js";
+import { sendTemplatedEmail } from "../services/email.service.js";
 import { sendSms } from "../services/sms.service.js";
 
 /**
@@ -60,10 +60,10 @@ export async function confirmPayment(req: Request, res: Response) {
 
     const { data: player } = await supabase.from("users").select("email").eq("id", payment.payer_id).maybeSingle();
     if (player?.email) {
-      await sendEmail({
-        to: player.email,
-        subject: "Booking confirmed",
-        html: emailTemplates.bookingConfirmed(booking.venue.name, when, booking.total_amount),
+      await sendTemplatedEmail("booking_confirmed", player.email, {
+        venueName: booking.venue.name,
+        when,
+        amount: booking.total_amount.toLocaleString(),
       });
     }
     await sendSms({
@@ -89,10 +89,10 @@ export async function confirmPayment(req: Request, res: Response) {
         link: `/owner/bookings`,
       });
       if (recipient.email) {
-        await sendEmail({
-          to: recipient.email,
-          subject: "New booking",
-          html: emailTemplates.newBooking(booking.venue.name, when, booking.subtotal),
+        await sendTemplatedEmail("new_booking", recipient.email, {
+          venueName: booking.venue.name,
+          when,
+          amount: booking.subtotal.toLocaleString(),
         });
       }
     }

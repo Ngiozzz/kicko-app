@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Disallow: /sign-in
+Disallow: /sign-up
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /auth/
+Disallow: /join-session
+Disallow: /admin
+Disallow: /admin-dashboard/
+Disallow: /owner/
+Disallow: /player/
+Disallow: /manager/
+
+Sitemap: https://kicko-app.co.ke/sitemap.xml

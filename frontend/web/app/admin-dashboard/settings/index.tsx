@@ -41,6 +41,11 @@ export default function AdminSettings() {
         href="/admin-dashboard/settings/windows"
       />
       <NavCard
+        title="Email templates"
+        description="The subject and body of every automatic email Kicko sends — booking, payout, venue, and review notices."
+        href="/admin-dashboard/settings/emails"
+      />
+      <NavCard
         title="Server logs"
         description="Recent backend activity, with errors and warnings flagged so problems are easy to spot."
         href="/admin-dashboard/settings/logs"

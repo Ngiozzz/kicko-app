@@ -4,7 +4,7 @@ import { computeServiceFee, computeRefundPct } from "../services/pricing.service
 import { getPlatformSettings } from "../services/settings.service.js";
 import { initiateStkPush } from "../services/stk.service.js";
 import { notify } from "../services/notifications.service.js";
-import { sendEmail, emailTemplates } from "../services/email.service.js";
+import { sendTemplatedEmail } from "../services/email.service.js";
 
 const EXCLUSION_VIOLATION = "23P01";
 const VENUE_COLUMNS = "id, name, location, sport, photos, price_peak, price_off_peak, owner_id, status";
@@ -181,11 +181,7 @@ export async function cancelMyBooking(req: Request, res: Response) {
     link: `/player/bookings/${booking.id}`,
   });
   if (req.user!.email) {
-    await sendEmail({
-      to: req.user!.email,
-      subject: "Booking cancelled",
-      html: emailTemplates.bookingCancelled(updated.venue.name, refundLine),
-    });
+    await sendTemplatedEmail("booking_cancelled", req.user!.email, { venueName: updated.venue.name, refundLine });
   }
 
   res.status(200).json({ booking: updated });

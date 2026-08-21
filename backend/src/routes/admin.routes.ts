@@ -17,6 +17,11 @@ import {
   getPaymentsOverview,
   listAdminTransactions,
   listAdminSessions,
+  listEmailTemplates,
+  updateEmailTemplate,
+  resetEmailTemplate,
+  previewDraftEmailTemplate,
+  sendTestEmailTemplate,
 } from "../controllers/admin.controller.js";
 
 const router = Router();
@@ -39,5 +44,10 @@ router.patch("/venues/:id/status", setVenueStatus);
 router.delete("/venues/:id", deleteVenue);
 router.delete("/reviews/:id", deleteReview);
 router.patch("/reviews/:id/dismiss-flag", dismissReviewFlag);
+router.get("/email-templates", listEmailTemplates);
+router.patch("/email-templates/:key", updateEmailTemplate);
+router.delete("/email-templates/:key", resetEmailTemplate);
+router.post("/email-templates/:key/preview-draft", previewDraftEmailTemplate);
+router.post("/email-templates/:key/send-test", sendTestEmailTemplate);
 
 export default router;

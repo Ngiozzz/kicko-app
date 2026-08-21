@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { supabase } from "../config/supabase.js";
 import { notify } from "../services/notifications.service.js";
-import { sendEmail, emailTemplates } from "../services/email.service.js";
+import { sendTemplatedEmail, escapeHtml } from "../services/email.service.js";
 
 const REVIEW_SELECT = "id, booking_id, venue_id, rating, comment, created_at, flagged_at, flag_reason, player:users!player_id(id, name)";
 const PAGE_SIZE_DEFAULT = 20;
@@ -111,10 +111,10 @@ export async function createReview(req: Request, res: Response) {
       link: `/owner/venues/${booking.venue_id}/reviews`,
     });
     if (venue.owner?.email) {
-      await sendEmail({
-        to: venue.owner.email,
-        subject: "New review",
-        html: emailTemplates.newReview(venue.name, rating, data.comment),
+      await sendTemplatedEmail("new_review", venue.owner.email, {
+        venueName: venue.name,
+        stars: `${"★".repeat(rating)}${"☆".repeat(5 - rating)}`,
+        commentBlock: data.comment ? `<p>"${escapeHtml(data.comment)}"</p>` : "",
       });
     }
   }

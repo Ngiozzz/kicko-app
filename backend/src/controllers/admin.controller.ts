@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { supabase } from "../config/supabase.js";
 import { getLogs, type LogLevel } from "../services/logs.service.js";
 import { notify } from "../services/notifications.service.js";
-import { sendEmail, emailTemplates } from "../services/email.service.js";
+import { sendEmail, sendTemplatedEmail, renderEmailTemplate, SAMPLE_VARS, FALLBACK_TEMPLATES, type EmailTemplateKey } from "../services/email.service.js";
 
 function requireAdmin(req: Request, res: Response): boolean {
   if (req.user!.role !== "admin") {
@@ -224,11 +224,11 @@ export async function setVenueStatus(req: Request, res: Response) {
       link: `/owner/venues/${data.id}`,
     });
     if (data.owner?.email) {
-      await sendEmail({
-        to: data.owner.email,
-        subject: status === "verified" ? "Venue verified" : "Venue suspended",
-        html: emailTemplates.venueStatusChanged(data.name, status === "verified", status === "suspended" ? rejection_reason.trim() : undefined),
-      });
+      if (status === "verified") {
+        await sendTemplatedEmail("venue_verified", data.owner.email, { venueName: data.name });
+      } else {
+        await sendTemplatedEmail("venue_suspended", data.owner.email, { venueName: data.name, reason: rejection_reason.trim() });
+      }
     }
   }
 
@@ -411,4 +411,96 @@ export async function listAdminSessions(req: Request, res: Response) {
   });
 
   res.status(200).json({ sessions });
+}
+
+function isEmailTemplateKey(key: string): key is EmailTemplateKey {
+  return (SAMPLE_VARS as Record<string, unknown>)[key] !== undefined;
+}
+
+/** Every editable transactional-email template, DB copy where it exists, fallback copy otherwise — the admin Emails settings list. */
+export async function listEmailTemplates(req: Request, res: Response) {
+  if (!requireAdmin(req, res)) return;
+
+  const { data, error } = await supabase.from("email_templates").select("key, subject, html, updated_at");
+  if (error) return res.status(500).json({ error: "Could not load email templates." });
+
+  const byKey = new Map((data ?? []).map((row) => [row.key, row]));
+  const templates = Object.keys(SAMPLE_VARS).map((key) => {
+    const vars = Object.keys(SAMPLE_VARS[key as EmailTemplateKey]);
+    const row = byKey.get(key);
+    return row
+      ? { key, subject: row.subject, html: row.html, updated_at: row.updated_at, isDefault: false, vars }
+      : { key, ...FALLBACK_TEMPLATES[key as EmailTemplateKey], updated_at: null, isDefault: true, vars };
+  });
+
+  res.status(200).json({ templates });
+}
+
+/** Overwrites one template's subject/body — creates the row if this key was still on its fallback. */
+export async function updateEmailTemplate(req: Request, res: Response) {
+  if (!requireAdmin(req, res)) return;
+
+  const { key } = req.params;
+  if (!isEmailTemplateKey(key)) return res.status(404).json({ error: "Unknown email template." });
+
+  const { subject, html } = req.body;
+  if (typeof subject !== "string" || !subject.trim()) return res.status(400).json({ error: "Subject is required." });
+  if (typeof html !== "string" || !html.trim()) return res.status(400).json({ error: "Email body is required." });
+
+  const { data, error } = await supabase
+    .from("email_templates")
+    .upsert({ key, subject: subject.trim(), html })
+    .select("key, subject, html, updated_at")
+    .single();
+
+  if (error || !data) return res.status(500).json({ error: "Could not save this template." });
+  res.status(200).json({ template: { ...data, isDefault: false } });
+}
+
+/** Deletes the DB row for this key, reverting it to the hardcoded fallback copy. */
+export async function resetEmailTemplate(req: Request, res: Response) {
+  if (!requireAdmin(req, res)) return;
+
+  const { key } = req.params;
+  if (!isEmailTemplateKey(key)) return res.status(404).json({ error: "Unknown email template." });
+
+  const { error } = await supabase.from("email_templates").delete().eq("key", key);
+  if (error) return res.status(500).json({ error: "Could not reset this template." });
+
+  res.status(200).json({ template: { key, ...FALLBACK_TEMPLATES[key], updated_at: null, isDefault: true } });
+}
+
+/**
+ * Renders `key` with sample data as JSON, from the exact subject/html the
+ * editor currently holds (not what's saved) — the live preview pane
+ * re-calls this as the admin types, so what they see always matches what
+ * "Save" or "Send test" would actually produce for that draft.
+ */
+export async function previewDraftEmailTemplate(req: Request, res: Response) {
+  if (!requireAdmin(req, res)) return;
+
+  const { key } = req.params;
+  if (!isEmailTemplateKey(key)) return res.status(404).json({ error: "Unknown email template." });
+
+  const { subject, html } = req.body;
+  if (typeof subject !== "string" || typeof html !== "string") return res.status(400).json({ error: "Subject and body are required." });
+
+  const rendered = await renderEmailTemplate(key, SAMPLE_VARS[key], { subject, html });
+  res.status(200).json(rendered);
+}
+
+/** Sends `key` to the calling admin's own email, rendered with sample data — from the given draft if one's passed, otherwise the saved (or fallback) copy. */
+export async function sendTestEmailTemplate(req: Request, res: Response) {
+  if (!requireAdmin(req, res)) return;
+
+  const { key } = req.params;
+  if (!isEmailTemplateKey(key)) return res.status(404).json({ error: "Unknown email template." });
+  if (!req.user!.email) return res.status(400).json({ error: "Your account has no email on file to send the test to." });
+
+  const { subject, html } = req.body ?? {};
+  const draft = typeof subject === "string" && typeof html === "string" ? { subject, html } : undefined;
+
+  const rendered = await renderEmailTemplate(key, SAMPLE_VARS[key], draft);
+  await sendEmail({ to: req.user!.email, ...rendered });
+  res.status(200).json({ sentTo: req.user!.email });
 }

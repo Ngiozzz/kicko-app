@@ -1,7 +1,7 @@
 import { supabase } from "../config/supabase.js";
 import { initiateB2CPayout } from "../services/b2c.service.js";
 import { notify } from "../services/notifications.service.js";
-import { sendEmail, emailTemplates } from "../services/email.service.js";
+import { sendTemplatedEmail } from "../services/email.service.js";
 import { sendSms } from "../services/sms.service.js";
 
 const CHECK_INTERVAL_MS = 60_000;
@@ -85,14 +85,11 @@ async function resolveDuePayouts() {
 
       const owner = payout.owner;
       if (owner?.email) {
-        await sendEmail({
-          to: owner.email,
-          subject: result.status === "success" ? "Payout sent" : "Payout failed",
-          html:
-            result.status === "success"
-              ? emailTemplates.payoutPaid(venueName, payout.amount)
-              : emailTemplates.payoutFailed(venueName, payout.amount, failureReason),
-        });
+        if (result.status === "success") {
+          await sendTemplatedEmail("payout_paid", owner.email, { venueName, amount: payout.amount.toLocaleString() });
+        } else {
+          await sendTemplatedEmail("payout_failed", owner.email, { venueName, amount: payout.amount.toLocaleString(), reason: failureReason });
+        }
       }
       if (owner?.phone) {
         await sendSms({

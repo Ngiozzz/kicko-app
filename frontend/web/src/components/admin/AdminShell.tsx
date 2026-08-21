@@ -66,6 +66,17 @@ const BREADCRUMBS: Record<string, Crumb[]> = {
     { label: 'Settings', href: '/admin-dashboard/settings' },
     { label: 'Match windows' },
   ],
+  '/admin-dashboard/settings/emails': [
+    { label: 'Dashboard', href: '/admin-dashboard' },
+    { label: 'Settings', href: '/admin-dashboard/settings' },
+    { label: 'Email templates' },
+  ],
+  '/admin-dashboard/settings/emails/guide': [
+    { label: 'Dashboard', href: '/admin-dashboard' },
+    { label: 'Settings', href: '/admin-dashboard/settings' },
+    { label: 'Email templates', href: '/admin-dashboard/settings/emails' },
+    { label: 'Design guide' },
+  ],
 };
 
 // Static fallback — the venue detail page overrides its own crumb with the
@@ -74,6 +85,14 @@ function breadcrumbFor(pathname: string): Crumb[] {
   if (BREADCRUMBS[pathname]) return BREADCRUMBS[pathname];
   if (pathname.startsWith('/admin-dashboard/venues/')) {
     return [{ label: 'Dashboard', href: '/admin-dashboard' }, { label: 'Venues', href: '/admin-dashboard/venues' }, { label: 'Venue' }];
+  }
+  if (pathname.startsWith('/admin-dashboard/settings/emails/')) {
+    return [
+      { label: 'Dashboard', href: '/admin-dashboard' },
+      { label: 'Settings', href: '/admin-dashboard/settings' },
+      { label: 'Email templates', href: '/admin-dashboard/settings/emails' },
+      { label: 'Edit template' },
+    ];
   }
   return [{ label: 'Dashboard' }];
 }
