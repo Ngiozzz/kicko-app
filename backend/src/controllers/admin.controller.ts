@@ -53,7 +53,7 @@ export async function listUsers(req: Request, res: Response) {
 
   let query = supabase
     .from("users")
-    .select("id, role, name, email, phone, suspended, owner_id, sport, position, created_at")
+    .select("id, role, name, email, phone, suspended, owner_id, sport, position, avatar_url, created_at")
     .order("created_at", { ascending: false });
 
   const role = req.query.role;
@@ -83,7 +83,7 @@ export async function getUserDetail(req: Request, res: Response) {
 
   const { data: user, error } = await supabase
     .from("users")
-    .select("id, role, name, email, phone, suspended, owner_id, sport, position, created_at")
+    .select("id, role, name, email, phone, suspended, owner_id, sport, position, avatar_url, created_at")
     .eq("id", req.params.id)
     .maybeSingle();
   if (error) return res.status(500).json({ error: "Could not load this user." });
@@ -145,7 +145,7 @@ export async function setUserSuspended(req: Request, res: Response) {
     .from("users")
     .update({ suspended })
     .eq("id", req.params.id)
-    .select("id, role, name, email, phone, suspended, owner_id, created_at")
+    .select("id, role, name, email, phone, suspended, owner_id, avatar_url, created_at")
     .maybeSingle();
 
   if (error) return res.status(500).json({ error: "Could not update this user." });
@@ -271,7 +271,7 @@ export async function deleteVenue(req: Request, res: Response) {
   res.status(204).send();
 }
 
-const USER_COLUMNS = "id, role, name, email, phone, suspended, owner_id, created_at";
+const USER_COLUMNS = "id, role, name, email, phone, suspended, owner_id, avatar_url, created_at";
 
 /**
  * Provisions a new admin account — the only way one gets created, since

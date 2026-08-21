@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { apiFetch, colors, fonts, radius } from '@kicko/shared';
 import { adminApi, AdminUser, AdminUserActivity } from '../../src/lib/adminApi';
@@ -23,6 +23,23 @@ const ROLE_STYLE: Record<AdminUser['role'], { bg: string; color: string }> = {
   manager: { bg: 'rgba(90,95,102,0.16)', color: colors.textSoft },
   admin: { bg: 'rgba(196,69,63,0.12)', color: colors.danger },
 };
+
+// Falls back to the role-colored initial (green for owners, red for
+// admins, etc.) when there's no real photo — that color coding is a
+// genuinely useful at-a-glance signal here, so this stays its own thing
+// instead of the shared, single-color <Avatar> used in the dashboards.
+function RoleAvatar({ user, size, textSize }: { user: AdminUser; size: number; textSize: number }) {
+  const roleStyle = ROLE_STYLE[user.role];
+  const dimension = { width: size, height: size, borderRadius: size / 2 };
+  if (user.avatar_url) {
+    return <Image source={{ uri: user.avatar_url }} style={[styles.avatarImg, dimension]} />;
+  }
+  return (
+    <View style={[styles.avatar, dimension, { backgroundColor: roleStyle.bg }]}>
+      <Text style={[styles.avatarText, { color: roleStyle.color, fontSize: textSize }]}>{user.name.charAt(0).toUpperCase() || '?'}</Text>
+    </View>
+  );
+}
 
 function metaChipsFor(user: AdminUser): string[] {
   const chips: string[] = [];
@@ -186,9 +203,7 @@ function UserDetailDrawer({ user, onClose }: { user: AdminUser | null; onClose: 
   return (
     <Drawer visible={Boolean(user)} onClose={onClose} title="User details">
       <View style={styles.detailHead}>
-        <View style={[styles.avatar, styles.avatarLg, { backgroundColor: roleStyle.bg }]}>
-          <Text style={[styles.avatarText, styles.avatarTextLg, { color: roleStyle.color }]}>{user.name.charAt(0).toUpperCase() || '?'}</Text>
-        </View>
+        <RoleAvatar user={user} size={52} textSize={18} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={styles.detailName}>{user.name || 'Unnamed'}</Text>
           <View style={styles.detailBadgeRow}>
@@ -453,9 +468,7 @@ export default function AdminUsers() {
             return (
               <Pressable key={user.id} onPress={() => setDetailUser(user)} style={[styles.userCard, user.suspended && styles.userCardSuspended]}>
                 <View style={styles.cardTopRow}>
-                  <View style={[styles.avatar, { backgroundColor: roleStyle.bg }]}>
-                    <Text style={[styles.avatarText, { color: roleStyle.color }]}>{user.name.charAt(0).toUpperCase() || '?'}</Text>
-                  </View>
+                  <RoleAvatar user={user} size={40} textSize={14} />
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={styles.uName} numberOfLines={1}>
                       {user.name || 'Unnamed'}
@@ -531,9 +544,7 @@ export default function AdminUsers() {
             return (
               <Pressable key={user.id} onPress={() => setDetailUser(user)} style={styles.tableRow}>
                 <View style={[styles.userCell, styles.colUser]}>
-                  <View style={[styles.avatar, styles.avatarSm, { backgroundColor: roleStyle.bg }]}>
-                    <Text style={[styles.avatarText, { color: roleStyle.color }]}>{user.name.charAt(0).toUpperCase() || '?'}</Text>
-                  </View>
+                  <RoleAvatar user={user} size={32} textSize={14} />
                   <View style={{ minWidth: 0 }}>
                     <Text style={styles.uName} numberOfLines={1}>
                       {user.name || 'Unnamed'}
@@ -640,11 +651,9 @@ const styles = StyleSheet.create({
   userCardSuspended: { opacity: 0.75, borderColor: 'rgba(196,69,63,0.35)' },
 
   cardTopRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 14 },
-  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  avatarSm: { width: 32, height: 32, borderRadius: 16 },
-  avatarLg: { width: 52, height: 52, borderRadius: 26 },
-  avatarText: { fontFamily: fonts.sansSemiBold, fontSize: 14 },
-  avatarTextLg: { fontSize: 18 },
+  avatar: { alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  avatarImg: { flexShrink: 0, backgroundColor: colors.surface2 },
+  avatarText: { fontFamily: fonts.sansSemiBold },
   uName: { fontFamily: fonts.sansSemiBold, fontSize: 14.5, color: colors.text, marginBottom: 5 },
   youTag: { fontFamily: fonts.sansMedium, fontSize: 12, color: colors.textSoft },
 

@@ -12,6 +12,7 @@ export type AdminUser = {
   owner_id: string | null;
   sport: string | null;
   position: string | null;
+  avatar_url: string | null;
   // Only populated for role='owner' — how many venues they own.
   venue_count: number | null;
   created_at: string;
