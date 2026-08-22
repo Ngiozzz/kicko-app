@@ -195,7 +195,8 @@ export default function JoinSession() {
         <LogoMark size={28} />
         <Text style={styles.title}>You've been invited to play</Text>
         <Text style={styles.body}>
-          {info.venue.name} — {new Date(info.start_at).toLocaleString('en-KE', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}
+          <Text style={styles.strong}>{info.organizer_name}</Text> invited you to {info.venue.name} —{' '}
+          {new Date(info.start_at).toLocaleString('en-KE', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}
         </Text>
         <Text style={styles.body}>
           You'll be joining the <Text style={styles.strong}>{info.side}</Text> side{info.will_become_captain ? ', as its captain' : ''}. {info.headcount} already accepted.

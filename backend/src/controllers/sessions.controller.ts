@@ -6,7 +6,7 @@ import { getPlatformSettings, type PlatformSettings } from "../services/settings
 import { initiateStkPush } from "../services/stk.service.js";
 
 const VENUE_COLUMNS = "id, name, location, sport, photos, price_peak, price_off_peak, owner_id, status";
-const SESSION_SELECT = `*, venue:venues(${VENUE_COLUMNS})`;
+const SESSION_SELECT = `*, venue:venues(${VENUE_COLUMNS}), organizer:users(name)`;
 // Two FKs into users once invited_by exists — must name the one we mean.
 const PARTICIPANT_SELECT = "*, user:users!session_participants_user_id_fkey(id, name, email, phone)";
 
@@ -534,6 +534,7 @@ export async function getJoinInfo(req: Request, res: Response) {
   res.status(200).json({
     session_id: session.id,
     venue: session.venue,
+    organizer_name: session.organizer.name,
     start_at: session.start_at,
     end_at: session.end_at,
     side,

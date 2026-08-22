@@ -24,6 +24,7 @@ export type MatchSession = {
   created_at: string;
   updated_at: string;
   venue: Pick<Venue, 'id' | 'name' | 'location' | 'sport' | 'photos' | 'price_peak' | 'price_off_peak' | 'owner_id' | 'status'>;
+  organizer: { name: string };
   // Only populated on the sessionsApi.mine() list view — a cheap headcount
   // for the card, not the full roster (that's getSession's job).
   accepted_count?: number;
@@ -63,6 +64,7 @@ export type SessionDetail = {
 export type JoinInfo = {
   session_id: string;
   venue: MatchSession['venue'];
+  organizer_name: string;
   start_at: string;
   end_at: string;
   side: SessionSide;
