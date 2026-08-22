@@ -27,6 +27,10 @@ const DEFAULT_SERVICE_FEE_TIERS: ServiceFeeTier[] = [
 type Stage = 'form' | 'stk' | 'success';
 type BookingMode = 'solo' | 'split';
 
+// Must match MAX_BOOKING_HOURS in backend/src/services/pricing.service.ts
+// — kept as a UI-side cap on how far a click can extend the selection.
+const MAX_BOOKING_HOURS = 12;
+
 export default function ExploreVenueDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -36,7 +40,10 @@ export default function ExploreVenueDetail() {
   const [dates] = useState(dateOptions);
   const [selectedDate, setSelectedDate] = useState(dates[0].date);
   const [booked, setBooked] = useState<BookedSlot[] | null>(null);
-  const [selectedHour, setSelectedHour] = useState<number | null>(null);
+  // Contiguous hours only, kept sorted ascending — see handleSlotPress for
+  // how clicks extend/shrink the range. Matches MAX_BOOKING_HOURS on the
+  // backend (pricing.service.ts).
+  const [selectedHours, setSelectedHours] = useState<number[]>([]);
   const [phone, setPhone] = useState('');
   const [mode, setMode] = useState<BookingMode>('solo');
   const [stage, setStage] = useState<Stage>('form');
@@ -85,7 +92,7 @@ export default function ExploreVenueDetail() {
 
   useEffect(() => {
     if (!id) return;
-    setSelectedHour(null);
+    setSelectedHours([]);
     exploreApi
       .availability(id, selectedDate)
       .then(({ booked }) => setBooked(booked))
@@ -95,12 +102,39 @@ export default function ExploreVenueDetail() {
   const slots = useMemo(() => (venue ? hourSlots(venue.opening_time, venue.closing_time) : []), [venue]);
   const now = Date.now();
 
-  const subtotal = venue?.price_peak ?? 0;
+  const sortedHours = useMemo(() => [...selectedHours].sort((a, b) => a - b), [selectedHours]);
+  const hours = sortedHours.length;
+  const selectionRange = useMemo(() => {
+    if (hours === 0) return null;
+    return { start: slotRange(selectedDate, sortedHours[0]).start, end: slotRange(selectedDate, sortedHours[hours - 1]).end };
+  }, [selectedDate, sortedHours, hours]);
+
+  // Clicking a slot extends the current range by exactly one adjacent
+  // hour, shrinks it from an endpoint, toggles off a lone selection, or
+  // (for any other click) starts a fresh single-hour selection — this
+  // keeps the range contiguous by construction, so it can never span over
+  // a taken hour that was never actually clicked.
+  function handleSlotPress(hour: number) {
+    setSelectedHours((prev) => {
+      if (prev.length === 0) return [hour];
+      const min = prev[0];
+      const max = prev[prev.length - 1];
+      if (prev.length === 1 && hour === min) return [];
+      if ((hour === max + 1 || hour === min - 1) && prev.length >= MAX_BOOKING_HOURS) return prev;
+      if (hour === max + 1) return [...prev, hour];
+      if (hour === min - 1) return [hour, ...prev];
+      if (hour === max && prev.length > 1) return prev.filter((h) => h !== max);
+      if (hour === min && prev.length > 1) return prev.filter((h) => h !== min);
+      return [hour];
+    });
+  }
+
+  const subtotal = (venue?.price_peak ?? 0) * hours;
   const serviceFee = computeServiceFee(subtotal, serviceFeeTiers);
   const total = subtotal + serviceFee;
 
   async function submitBooking() {
-    if (!venue || selectedHour === null) return;
+    if (!venue || !selectionRange) return;
     if (!phone.trim()) {
       setFormError('Enter the phone number to receive the M-Pesa prompt on.');
       return;
@@ -108,11 +142,10 @@ export default function ExploreVenueDetail() {
     setFormError(null);
     setSubmitting(true);
     try {
-      const { start, end } = slotRange(selectedDate, selectedHour);
       const { booking, payment } = await bookingsApi.create({
         venue_id: venue.id,
-        start_at: start.toISOString(),
-        end_at: end.toISOString(),
+        start_at: selectionRange.start.toISOString(),
+        end_at: selectionRange.end.toISOString(),
         phone_number: phone.trim(),
       });
       setBooking(booking);
@@ -126,12 +159,11 @@ export default function ExploreVenueDetail() {
   }
 
   async function submitSession() {
-    if (!venue || selectedHour === null) return;
+    if (!venue || !selectionRange) return;
     setFormError(null);
     setSubmitting(true);
     try {
-      const { start, end } = slotRange(selectedDate, selectedHour);
-      const { session } = await sessionsApi.create({ venue_id: venue.id, start_at: start.toISOString(), end_at: end.toISOString() });
+      const { session } = await sessionsApi.create({ venue_id: venue.id, start_at: selectionRange.start.toISOString(), end_at: selectionRange.end.toISOString() });
       router.push(`/player/sessions/${session.id}`);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Could not start a match session.');
@@ -230,20 +262,26 @@ export default function ExploreVenueDetail() {
                 const taken = overlaps(start, end, booked);
                 const past = start.getTime() < now;
                 const disabled = taken || past;
+                const selected = sortedHours.includes(hour);
                 const label = start.toLocaleTimeString('en-KE', { hour: 'numeric', minute: '2-digit' });
                 return (
                   <Pressable
                     key={hour}
                     disabled={disabled}
-                    onPress={() => setSelectedHour(hour)}
-                    style={[styles.slot, disabled && styles.slotTaken, selectedHour === hour && styles.slotSelected]}
+                    onPress={() => handleSlotPress(hour)}
+                    style={[styles.slot, disabled && styles.slotTaken, selected && styles.slotSelected]}
                   >
-                    <Text style={[styles.slotText, selectedHour === hour && styles.slotTextSelected]}>{label}</Text>
+                    <Text style={[styles.slotText, selected && styles.slotTextSelected]}>{label}</Text>
                   </Pressable>
                 );
               })}
               {slots.length === 0 && <Text style={styles.emptyText}>This venue hasn't set its opening hours.</Text>}
             </View>
+          )}
+          {hours > 0 && (
+            <Text style={styles.slotsHint}>
+              {hours} hour{hours === 1 ? '' : 's'} selected — click an edge slot to extend, or a highlighted slot to shrink.
+            </Text>
           )}
         </View>
 
@@ -307,7 +345,9 @@ export default function ExploreVenueDetail() {
             <Text style={styles.fieldLabel}>Date &amp; time</Text>
             <View style={styles.fieldValue}>
               <Text style={styles.fieldValueText}>
-                {selectedHour === null ? 'Pick a slot on the left' : `${dates.find((d) => d.date === selectedDate)?.label}, ${slotRange(selectedDate, selectedHour).start.toLocaleTimeString('en-KE', { hour: 'numeric', minute: '2-digit' })} – ${slotRange(selectedDate, selectedHour).end.toLocaleTimeString('en-KE', { hour: 'numeric', minute: '2-digit' })}`}
+                {!selectionRange
+                  ? 'Pick one or more slots on the left'
+                  : `${dates.find((d) => d.date === selectedDate)?.label}, ${selectionRange.start.toLocaleTimeString('en-KE', { hour: 'numeric', minute: '2-digit' })} – ${selectionRange.end.toLocaleTimeString('en-KE', { hour: 'numeric', minute: '2-digit' })} (${hours} hr${hours === 1 ? '' : 's'})`}
               </Text>
             </View>
 
@@ -324,7 +364,7 @@ export default function ExploreVenueDetail() {
 
                 <View style={styles.breakdown}>
                   <View style={styles.breakdownRow}>
-                    <Text style={styles.breakdownLabel}>Slot (1 hr)</Text>
+                    <Text style={styles.breakdownLabel}>Slot ({hours} hr{hours === 1 ? '' : 's'})</Text>
                     <Text style={styles.breakdownValue}>KES {subtotal.toLocaleString()}</Text>
                   </View>
                   <View style={styles.breakdownRow}>
@@ -340,9 +380,9 @@ export default function ExploreVenueDetail() {
                 {formError && <Text style={styles.error}>{formError}</Text>}
 
                 <Pressable
-                  disabled={selectedHour === null || submitting}
+                  disabled={!selectionRange || submitting}
                   onPress={submitBooking}
-                  style={[styles.btn, (selectedHour === null || submitting) && styles.btnDisabled]}
+                  style={[styles.btn, (!selectionRange || submitting) && styles.btnDisabled]}
                 >
                   <Text style={styles.btnText}>{submitting ? 'Starting…' : 'Continue to pay with M-Pesa'}</Text>
                 </Pressable>
@@ -356,9 +396,9 @@ export default function ExploreVenueDetail() {
                 {formError && <Text style={styles.error}>{formError}</Text>}
 
                 <Pressable
-                  disabled={selectedHour === null || submitting}
+                  disabled={!selectionRange || submitting}
                   onPress={submitSession}
-                  style={[styles.btn, (selectedHour === null || submitting) && styles.btnDisabled]}
+                  style={[styles.btn, (!selectionRange || submitting) && styles.btnDisabled]}
                 >
                   <Text style={styles.btnText}>{submitting ? 'Starting…' : 'Start a match session'}</Text>
                 </Pressable>
@@ -435,6 +475,7 @@ const styles = StyleSheet.create({
   slotSelected: { backgroundColor: colors.accent, borderColor: 'transparent' },
   slotText: { fontFamily: fonts.sansSemiBold, fontSize: 13, color: colors.text },
   slotTextSelected: { color: colors.accentText },
+  slotsHint: { fontFamily: fonts.sans, fontSize: 12, color: colors.textSoft, marginTop: 10 },
   emptyText: { fontFamily: fonts.sans, fontSize: 13, color: colors.textSoft },
 
   reviewForm: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: 16, marginBottom: 20 },

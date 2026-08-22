@@ -3,6 +3,21 @@ import type { PlatformSettings } from "./settings.service.js";
 type ServiceFeeTiers = PlatformSettings["service_fee_tiers"];
 type RefundPolicy = Pick<PlatformSettings, "refund_tiers" | "walk_in_refund_pct">;
 
+// Bookings and sessions are sold in whole-hour blocks — the only shape a
+// flat per-hour venue rate knows how to charge for, and what the
+// frontend's slot picker produces. The cap is just an abuse/fat-finger
+// guard, not a real venue constraint (no venue is open 24h).
+export const MAX_BOOKING_HOURS = 12;
+
+// Returns the whole number of hours in [start, end), or null if the range
+// isn't a positive whole-hour multiple within MAX_BOOKING_HOURS — callers
+// treat null as a 400.
+export function wholeHoursBetween(start: Date, end: Date): number | null {
+  const hours = (end.getTime() - start.getTime()) / (60 * 60 * 1000);
+  if (!Number.isInteger(hours) || hours < 1 || hours > MAX_BOOKING_HOURS) return null;
+  return hours;
+}
+
 // Flat, tiered service fee added on top of the venue subtotal — ported
 // verbatim from Thurfa's real backend (booking.service.js) as the original
 // defaults, now admin-editable via platform_settings (see settings.service.ts).

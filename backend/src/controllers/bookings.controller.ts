@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { supabase } from "../config/supabase.js";
-import { computeServiceFee, computeRefundPct } from "../services/pricing.service.js";
+import { computeServiceFee, computeRefundPct, wholeHoursBetween, MAX_BOOKING_HOURS } from "../services/pricing.service.js";
 import { getPlatformSettings } from "../services/settings.service.js";
 import { initiateStkPush } from "../services/stk.service.js";
 import { notify } from "../services/notifications.service.js";
@@ -26,6 +26,8 @@ export async function createBooking(req: Request, res: Response) {
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
     return res.status(400).json({ error: "Invalid booking time range." });
   }
+  const hours = wholeHoursBetween(start, end);
+  if (hours === null) return res.status(400).json({ error: `Bookings must be between 1 and ${MAX_BOOKING_HOURS} whole hours.` });
   if (start.getTime() < Date.now()) {
     return res.status(400).json({ error: "You can't book a slot in the past." });
   }
@@ -35,7 +37,7 @@ export async function createBooking(req: Request, res: Response) {
   if (!venue || venue.status !== "verified") return res.status(404).json({ error: "Venue not found." });
 
   const settings = await getPlatformSettings();
-  const subtotal = venue.price_peak;
+  const subtotal = venue.price_peak * hours;
   const serviceFee = computeServiceFee(subtotal, settings.service_fee_tiers);
   const isWalkIn = start.toDateString() === new Date().toDateString();
 

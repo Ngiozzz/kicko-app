@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import type { Request, Response } from "express";
 import { supabase } from "../config/supabase.js";
-import { computeRefundPct, computeSessionSplit, reverseServiceFee } from "../services/pricing.service.js";
+import { computeRefundPct, computeSessionSplit, reverseServiceFee, wholeHoursBetween, MAX_BOOKING_HOURS } from "../services/pricing.service.js";
 import { getPlatformSettings, type PlatformSettings } from "../services/settings.service.js";
 import { initiateStkPush } from "../services/stk.service.js";
 
@@ -236,6 +236,8 @@ export async function createSession(req: Request, res: Response) {
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
     return res.status(400).json({ error: "Invalid session time range." });
   }
+  const hours = wholeHoursBetween(start, end);
+  if (hours === null) return res.status(400).json({ error: `Sessions must be between 1 and ${MAX_BOOKING_HOURS} whole hours.` });
   if (start.getTime() < Date.now()) return res.status(400).json({ error: "You can't start a session in the past." });
 
   const { data: venue, error: venueError } = await supabase.from("venues").select(VENUE_COLUMNS).eq("id", venue_id).maybeSingle();
@@ -250,7 +252,7 @@ export async function createSession(req: Request, res: Response) {
       organizer_id: req.user!.id,
       start_at: start.toISOString(),
       end_at: end.toISOString(),
-      total_cost: venue.price_peak,
+      total_cost: venue.price_peak * hours,
       phase: "joining",
       phase_deadline: minutesFromNow(settings.session_join_window_minutes),
     })
