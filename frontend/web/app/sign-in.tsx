@@ -105,6 +105,7 @@ export default function SignIn() {
     // Route by the account's real role, not by the ?role= this page was
     // opened with — that's just which copy to show, not a guarantee of
     // who's actually signing in.
+    apiFetch('/api/account/device-event', { method: 'POST', body: JSON.stringify({ event: 'signin' }) }).catch(() => {});
     try {
       const { user } = await apiFetch<{ user: { role: string } }>('/api/account/me');
       router.replace(resolveNext(next, user.role));

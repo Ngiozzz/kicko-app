@@ -72,6 +72,11 @@ export default function AuthCallback() {
         }
       }
 
+      // Google doesn't distinguish a brand-new account from a returning
+      // one here, so this is always logged as 'signin' — an
+      // approximation, but device/browser is the signal that matters.
+      apiFetch('/api/account/device-event', { method: 'POST', body: JSON.stringify({ event: 'signin' }) }).catch(() => {});
+
       try {
         const { user } = await apiFetch<{ user: { role: string } }>('/api/account/me');
         router.replace(resolveNext(next, user.role));

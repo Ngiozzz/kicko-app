@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { supabase } from "../config/supabase.js";
+import { parseDevice } from "../services/deviceInfo.service.js";
 
 /**
  * Returns the caller's own profile — requireAuth has already fetched and
@@ -7,6 +8,16 @@ import { supabase } from "../config/supabase.js";
  */
 export function getOwnAccount(req: Request, res: Response) {
   res.status(200).json({ user: req.user });
+}
+
+/** Fire-and-forget analytics: one row per signup/sign-in, device/browser parsed from the caller's own User-Agent header — powers the admin dashboard's device breakdown. */
+export async function recordDeviceEvent(req: Request, res: Response) {
+  const { event } = req.body;
+  if (event !== "signup" && event !== "signin") return res.status(400).json({ error: "event must be 'signup' or 'signin'." });
+
+  const { deviceType, browser } = parseDevice(req.headers["user-agent"]);
+  await supabase.from("device_events").insert({ user_id: req.user!.id, event, device_type: deviceType, browser });
+  res.status(204).send();
 }
 
 /**

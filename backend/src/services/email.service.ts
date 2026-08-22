@@ -58,7 +58,8 @@ export type EmailTemplateKey =
   | "venue_verified"
   | "venue_suspended"
   | "new_review"
-  | "game_reminder";
+  | "game_reminder"
+  | "review_request";
 
 // Only "commentBlock" ever carries caller-built HTML (the review-comment
 // paragraph, already escaped by its caller) — every other placeholder is
@@ -108,6 +109,10 @@ export const FALLBACK_TEMPLATES: Record<EmailTemplateKey, { subject: string; htm
     subject: "Your game is in an hour",
     html: '<h2 style="margin:0 0 12px;">Kickoff in about an hour</h2><p>Hi {{name}},</p><p>Your game at <strong>{{venueName}}</strong> starts at <strong>{{when}}</strong>. See you there!</p>',
   },
+  review_request: {
+    subject: "How was your game?",
+    html: '<h2 style="margin:0 0 12px;">How was your game?</h2><p>Hi {{name}},</p><p>Hope you had a great time at <strong>{{venueName}}</strong>. Got a minute to rate it for other players?</p><p><a href="{{reviewUrl}}" style="color:#C08A3E;font-weight:600;">Leave a review →</a></p>',
+  },
 };
 
 /** Sample values for every placeholder any template key uses — powers the admin "send test" and preview actions. */
@@ -121,6 +126,7 @@ export const SAMPLE_VARS: Record<EmailTemplateKey, Record<string, string>> = {
   venue_suspended: { venueName: "Test Turf", reason: "Repeated no-shows reported by players" },
   new_review: { venueName: "Test Turf", stars: "★★★★☆", commentBlock: '<p>"Great pitch, would book again!"</p>' },
   game_reminder: { name: "Glenn", venueName: "Test Turf", when: "Sat, Aug 22 · 6:00 PM" },
+  review_request: { name: "Glenn", venueName: "Test Turf", reviewUrl: "https://kicko-app.co.ke/player/explore/00000000-0000-0000-0000-000000000000" },
 };
 
 /**

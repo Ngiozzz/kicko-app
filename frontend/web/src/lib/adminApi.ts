@@ -64,6 +64,7 @@ export type AdminStats = {
   usersByRole: { player: number; owner: number; manager: number; admin: number };
   totalVenues: number;
   venuesByStatus: { pending: number; verified: number; suspended: number };
+  deviceBreakdown: { mobile: number; tablet: number; desktop: number; other: number };
 };
 
 export type AdminInput = { name: string; email: string; password: string; phone?: string };

@@ -26,12 +26,13 @@ async function countActiveAdmins(): Promise<number> {
 export async function getStats(req: Request, res: Response) {
   if (!requireAdmin(req, res)) return;
 
-  const [{ data: users, error: usersError }, { data: venues, error: venuesError }] = await Promise.all([
+  const [{ data: users, error: usersError }, { data: venues, error: venuesError }, { data: deviceRows, error: deviceError }] = await Promise.all([
     supabase.from("users").select("role"),
     supabase.from("venues").select("status"),
+    supabase.from("device_events").select("device_type"),
   ]);
 
-  if (usersError || venuesError) return res.status(500).json({ error: "Could not load platform stats." });
+  if (usersError || venuesError || deviceError) return res.status(500).json({ error: "Could not load platform stats." });
 
   const usersByRole = { player: 0, owner: 0, manager: 0, admin: 0 };
   for (const u of users!) usersByRole[u.role as keyof typeof usersByRole]++;
@@ -39,11 +40,17 @@ export async function getStats(req: Request, res: Response) {
   const venuesByStatus = { pending: 0, verified: 0, suspended: 0 };
   for (const v of venues!) venuesByStatus[v.status as keyof typeof venuesByStatus]++;
 
+  // Counts signup/sign-in events, not unique users — a proxy for usage by
+  // device, not a headcount (see device_events migration).
+  const deviceBreakdown = { mobile: 0, tablet: 0, desktop: 0, other: 0 };
+  for (const d of deviceRows!) deviceBreakdown[d.device_type as keyof typeof deviceBreakdown]++;
+
   res.status(200).json({
     totalUsers: users!.length,
     usersByRole,
     totalVenues: venues!.length,
     venuesByStatus,
+    deviceBreakdown,
   });
 }
 

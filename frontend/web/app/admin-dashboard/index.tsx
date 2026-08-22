@@ -157,6 +157,16 @@ export default function AdminDashboard() {
                   </View>
                 ))}
               </View>
+
+              <View style={styles.sideCard}>
+                <Text style={styles.sideCardTitle}>Sign-ins by device</Text>
+                {(['mobile', 'tablet', 'desktop', 'other'] as const).map((d, i, arr) => (
+                  <View key={d} style={[styles.roleRow, i === arr.length - 1 && styles.roleRowLast]}>
+                    <Text style={styles.roleLabel}>{d.charAt(0).toUpperCase() + d.slice(1)}</Text>
+                    <Text style={styles.roleValue}>{stats.deviceBreakdown[d]}</Text>
+                  </View>
+                ))}
+              </View>
             </View>
           </View>
         </>

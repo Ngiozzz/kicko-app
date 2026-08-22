@@ -9,7 +9,8 @@ export type EmailTemplateKey =
   | 'venue_verified'
   | 'venue_suspended'
   | 'new_review'
-  | 'game_reminder';
+  | 'game_reminder'
+  | 'review_request';
 
 export type EmailTemplate = {
   key: EmailTemplateKey;
@@ -30,6 +31,7 @@ export const EMAIL_TEMPLATE_LABELS: Record<EmailTemplateKey, string> = {
   venue_suspended: 'Venue suspended',
   new_review: 'New review',
   game_reminder: 'Game reminder (1hr before)',
+  review_request: 'Review request (after the game)',
 };
 
 export const emailTemplatesApi = {

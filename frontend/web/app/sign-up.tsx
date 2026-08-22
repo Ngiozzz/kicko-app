@@ -5,7 +5,7 @@ import { colors, fonts } from '@kicko/shared';
 import { Button, Field } from '../src/components/ui';
 import { AuthLayout } from '../src/components/AuthLayout';
 import { GoogleSignInSection } from '../src/components/GoogleSignInButton';
-import { supabase, supabaseConfigured } from '@kicko/shared';
+import { apiFetch, supabase, supabaseConfigured } from '@kicko/shared';
 import { resolveNext } from '../src/lib/roleRoute';
 import { SignUpRole, signUpContent } from '../src/content/signUpContent';
 
@@ -93,6 +93,7 @@ export default function SignUp() {
     // no need to look it up — but whether we actually have a session
     // depends on whether the project requires email confirmation first.
     if (data.session) {
+      apiFetch('/api/account/device-event', { method: 'POST', body: JSON.stringify({ event: 'signup' }) }).catch(() => {});
       router.replace(resolveNext(next, role));
     } else {
       setConfirmEmailSent(true);

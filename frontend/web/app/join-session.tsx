@@ -117,6 +117,7 @@ export default function JoinSession() {
         });
         if (signUpError) throw new Error(signUpError.message);
       }
+      apiFetch('/api/account/device-event', { method: 'POST', body: JSON.stringify({ event: authMode }) }).catch(() => {});
       const { user } = await apiFetch<{ user: { name: string } }>('/api/account/me');
       setCurrentUserName(user.name);
 
