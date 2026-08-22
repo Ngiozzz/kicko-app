@@ -4,6 +4,7 @@ import { supabase } from "../config/supabase.js";
 import { computeRefundPct, computeSessionSplit, reverseServiceFee, wholeHoursBetween, MAX_BOOKING_HOURS } from "../services/pricing.service.js";
 import { getPlatformSettings, type PlatformSettings } from "../services/settings.service.js";
 import { initiateStkPush } from "../services/stk.service.js";
+import { sendTemplatedEmail } from "../services/email.service.js";
 
 const VENUE_COLUMNS = "id, name, location, sport, photos, price_peak, price_off_peak, owner_id, status";
 const SESSION_SELECT = `*, venue:venues(${VENUE_COLUMNS}), organizer:users(name)`;
@@ -211,6 +212,21 @@ export async function recomputeSessionFunding(sessionParticipantId: string) {
       .single();
     if (!error && updated) {
       await materializeSessionBooking(updated, amountPaid);
+
+      // Reuses the same booking_confirmed template solo bookings send —
+      // each participant gets their own share as "amount", not the
+      // session total, since the email is personalized per recipient.
+      const when = new Date(updated.start_at).toLocaleString("en-KE", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+      for (const p of participants ?? []) {
+        if (p.status !== "accepted" || !p.user?.email) continue;
+        await sendTemplatedEmail("booking_confirmed", p.user.email, {
+          name: p.user.name,
+          venueName: updated.venue.name,
+          when,
+          amount: (p.paid_amount ?? 0).toLocaleString(),
+        });
+      }
+
       return { session: updated, funded: true };
     }
   }
