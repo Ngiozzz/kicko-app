@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, fonts, radius } from '@kicko/shared';
 import {
@@ -28,15 +29,101 @@ const POLL_MS = 6000;
 type PhaseWindows = { joinSeconds: number; paySeconds: number; decisionGraceSeconds: number };
 const DEFAULT_PHASE_WINDOWS: PhaseWindows = { joinSeconds: 15 * 60, paySeconds: 5 * 60, decisionGraceSeconds: 10 * 60 };
 
-// Small scattered accents around the "funded" hero's checkmark — positions
-// as plain style objects so they can share the confettiDot base style.
-const CONFETTI_DOTS = [
-  { top: 4, left: 10, backgroundColor: colors.accent },
-  { top: 14, right: 6, backgroundColor: colors.good },
-  { bottom: 10, left: 2, backgroundColor: colors.good },
-  { bottom: 2, right: 16, backgroundColor: colors.accent },
-  { top: -4, left: '45%', backgroundColor: colors.accentSoft },
-] as const;
+// ============================================================
+// "Match Success" hero — a deliberately fixed-dark, floodlit-stadium
+// treatment that ignores the site's light/dark theme toggle on purpose
+// (like modalOverlay below, which also hardcodes literal black). This is
+// the one moment in the app meant to feel like a broadcast graphic, not
+// a form — see MatchSuccessHero further down.
+// ============================================================
+
+type StatIconProps = { size?: number; color: string };
+
+function CheckIcon({ size = 40, color }: StatIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M4 12.5l5.5 5.5L20 7" />
+    </Svg>
+  );
+}
+
+function CalendarIcon({ size = 15, color }: StatIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Rect x={3.5} y={5} width={17} height={16} rx={2.5} />
+      <Path d="M3.5 10h17" />
+      <Path d="M8 3v4M16 3v4" />
+    </Svg>
+  );
+}
+
+function PinIcon({ size = 15, color }: StatIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M12 21s7-7.2 7-12a7 7 0 1 0-14 0c0 4.8 7 12 7 12z" />
+      <Circle cx={12} cy={9} r={2.4} />
+    </Svg>
+  );
+}
+
+function UsersIcon({ size = 15, color }: StatIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Circle cx={9} cy={8} r={3.2} />
+      <Path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6" />
+      <Path d="M16 4.2a3.2 3.2 0 0 1 0 6.2" />
+      <Path d="M21.5 19.4c0-2.8-2-4.9-5-5.3" />
+    </Svg>
+  );
+}
+
+function WalletIcon({ size = 15, color }: StatIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Rect x={2.5} y={6} width={19} height={13} rx={2.5} />
+      <Path d="M2.5 10h19" />
+      <Path d="M16 14.2h3" />
+    </Svg>
+  );
+}
+
+// react-native-web (0.19+) turns these into real CSS @keyframes — reused
+// by reference across every piece/ring so they compile to one rule each,
+// with only timing (duration/delay) varying per element.
+const confettiFallKeyframes = {
+  '0%': { opacity: 0, transform: [{ translateY: '-20px' }, { rotate: '0deg' }] },
+  '12%': { opacity: 1 },
+  '55%': { transform: [{ translateY: '140px' }, { rotate: '190deg' }] },
+  '100%': { opacity: 0, transform: [{ translateY: '280px' }, { rotate: '380deg' }] },
+} as const;
+
+const pulseRingKeyframes = {
+  '0%': { transform: [{ scale: 1 }], opacity: 0.5 },
+  '100%': { transform: [{ scale: 1.9 }], opacity: 0 },
+} as const;
+
+const popInKeyframes = {
+  '0%': { opacity: 0, transform: [{ scale: 0.4 }] },
+  '60%': { opacity: 1, transform: [{ scale: 1.08 }] },
+  '100%': { opacity: 1, transform: [{ scale: 1 }] },
+} as const;
+
+const fadeUpKeyframes = {
+  '0%': { opacity: 0, transform: [{ translateY: '14px' }] },
+  '100%': { opacity: 1, transform: [{ translateY: '0px' }] },
+} as const;
+
+const CONFETTI_COLORS = ['#E8B65A', '#3C7A5C', '#FFFFFF', '#C08A3E'];
+// Golden-angle spacing (i * 137.5° mod 100) spreads pieces across the
+// width without visible clustering, deterministically — no Math.random.
+const CONFETTI_PIECES = Array.from({ length: 26 }, (_, i) => ({
+  left: `${(i * 137.5) % 100}%`,
+  delay: (i % 7) * 0.16,
+  duration: 2.3 + (i % 5) * 0.26,
+  color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+  size: 5 + (i % 4) * 1.6,
+  square: i % 3 !== 0,
+}));
 
 function phaseWindowSeconds(phase: MatchSession['phase'], windows: PhaseWindows): number {
   if (phase === 'joining') return windows.joinSeconds;
@@ -168,6 +255,127 @@ function SideRosterCard({
           return <ParticipantRow key={p.id} p={p} canManage={canRemove} removing={removingId === p.id} onRemove={() => onRemove(p.id)} />;
         })
       )}
+    </View>
+  );
+}
+
+function TicketStat({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <View style={styles.ticketStat}>
+      <View style={styles.ticketStatIcon}>{icon}</View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={styles.ticketStatLabel}>{label}</Text>
+        <Text style={styles.ticketStatValue} numberOfLines={1}>
+          {value}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// The funded outcome — the one moment in this whole flow worth making a
+// spectacle of. Fixed dark "floodlit" panel (see the comment above the
+// keyframe constants) with a bursting confetti layer, a pulsing checkmark
+// badge, and a printed-ticket-style stub for the details, instead of the
+// plain label/value grid every other terminal state uses.
+function MatchSuccessHero({
+  venueName,
+  sport,
+  startAt,
+  location,
+  playersJoined,
+  amountCollected,
+  onViewBookings,
+}: {
+  venueName: string;
+  sport: Sport;
+  startAt: string;
+  location: string;
+  playersJoined: number;
+  amountCollected: number;
+  onViewBookings: () => void;
+}) {
+  const when = new Date(startAt).toLocaleString('en-KE', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+
+  return (
+    <View style={styles.successHero}>
+      <View style={styles.confettiLayer} pointerEvents="none">
+        {CONFETTI_PIECES.map((c, i) => (
+          <View
+            key={i}
+            style={[
+              styles.confettiPiece,
+              {
+                left: c.left,
+                width: c.size,
+                height: c.size,
+                backgroundColor: c.color,
+                borderRadius: c.square ? 1.5 : c.size / 2,
+                animationKeyframes: confettiFallKeyframes,
+                animationDuration: `${c.duration}s`,
+                animationDelay: `${c.delay}s`,
+                animationIterationCount: 'infinite',
+                animationTimingFunction: 'ease-in',
+              } as any,
+            ]}
+          />
+        ))}
+      </View>
+
+      <View style={styles.successContent}>
+        <View style={[styles.successKicker, { animationKeyframes: fadeUpKeyframes, animationDuration: '0.5s', animationDelay: '0.05s', animationFillMode: 'both' } as any]}>
+          <View style={styles.successKickerDot} />
+          <Text style={styles.successKickerText}>Match confirmed</Text>
+        </View>
+
+        <View style={styles.successBadgeWrap}>
+          <View
+            style={[
+              styles.successPulseRing,
+              { animationKeyframes: pulseRingKeyframes, animationDuration: '2.2s', animationDelay: '0s', animationIterationCount: 'infinite', animationTimingFunction: 'ease-out' } as any,
+            ]}
+          />
+          <View
+            style={[
+              styles.successPulseRing,
+              { animationKeyframes: pulseRingKeyframes, animationDuration: '2.2s', animationDelay: '1.1s', animationIterationCount: 'infinite', animationTimingFunction: 'ease-out' } as any,
+            ]}
+          />
+          <View style={[styles.successBadge, { animationKeyframes: popInKeyframes, animationDuration: '0.6s', animationTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)', animationFillMode: 'both' } as any]}>
+            <CheckIcon size={34} color="#0F1210" />
+          </View>
+        </View>
+
+        <Text style={[styles.successTitle, { animationKeyframes: fadeUpKeyframes, animationDuration: '0.5s', animationDelay: '0.15s', animationFillMode: 'both' } as any]}>
+          Game <Text style={styles.successTitleAccent}>on.</Text>
+        </Text>
+        <Text style={[styles.successSubtitle, { animationKeyframes: fadeUpKeyframes, animationDuration: '0.5s', animationDelay: '0.22s', animationFillMode: 'both' } as any]}>
+          Everyone's paid their share — see you on the pitch.
+        </Text>
+
+        <View style={[styles.ticket, { animationKeyframes: fadeUpKeyframes, animationDuration: '0.55s', animationDelay: '0.3s', animationFillMode: 'both' } as any]}>
+          <View style={styles.ticketStub}>
+            <View style={styles.ticketSportBadge}>
+              <SportIcon sport={sport} size={24} />
+            </View>
+            <Text style={styles.ticketKicker}>Venue</Text>
+            <Text style={styles.ticketVenue}>{venueName}</Text>
+            <Text style={styles.ticketDate}>{when}</Text>
+          </View>
+          <View style={styles.ticketDivider} />
+          <View style={styles.ticketStats}>
+            <TicketStat icon={<PinIcon size={14} color="#C08A3E" />} label="Location" value={location} />
+            <TicketStat icon={<UsersIcon size={14} color="#C08A3E" />} label="Squad" value={`${playersJoined} players`} />
+            <TicketStat icon={<WalletIcon size={14} color="#C08A3E" />} label="Collected" value={`KES ${amountCollected.toLocaleString()}`} />
+          </View>
+        </View>
+
+        <View style={[styles.successActions, { animationKeyframes: fadeUpKeyframes, animationDuration: '0.5s', animationDelay: '0.42s', animationFillMode: 'both' } as any]}>
+          <Pressable style={styles.successBtn} onPress={onViewBookings}>
+            <Text style={styles.successBtnText}>View my bookings →</Text>
+          </Pressable>
+        </View>
+      </View>
     </View>
   );
 }
@@ -452,26 +660,28 @@ export default function MatchSessionDetail() {
         )}
       </View>
 
-      {isTerminal ? (
+      {session.phase === 'funded' ? (
+        <MatchSuccessHero
+          venueName={session.venue.name}
+          sport={session.venue.sport as Sport}
+          startAt={session.start_at}
+          location={session.venue.location}
+          playersJoined={homeCount + awayCount}
+          amountCollected={amount_paid_so_far}
+          onViewBookings={() => router.push('/player/bookings')}
+        />
+      ) : isTerminal ? (
         <View style={styles.terminalHero}>
-          <View style={[styles.heroIconRing, session.phase === 'cancelled' && styles.heroIconRingMuted]}>
-            {session.phase === 'funded' &&
-              CONFETTI_DOTS.map((dot, i) => <View key={i} style={[styles.confettiDot, dot]} />)}
-            <Text style={styles.heroIconBig}>{session.phase === 'funded' ? '✅' : '✕'}</Text>
+          <View style={[styles.heroIconRing, styles.heroIconRingMuted]}>
+            <Text style={styles.heroIconBig}>✕</Text>
           </View>
-          <Text style={styles.heroTitle}>{session.phase === 'funded' ? "You're all set — the game is on!" : 'Session cancelled'}</Text>
-          <Text style={styles.heroBody}>
-            {session.phase === 'funded'
-              ? "Everyone's paid their share. See you on the pitch."
-              : "This session didn't get fully funded in time and was cancelled."}
-          </Text>
+          <Text style={styles.heroTitle}>Session cancelled</Text>
+          <Text style={styles.heroBody}>This session didn't get fully funded in time and was cancelled.</Text>
 
-          {session.phase === 'cancelled' && (
-            <View style={styles.heroReasonBox}>
-              <Text style={styles.heroReasonLabel}>Why</Text>
-              <Text style={styles.heroReasonText}>{session.cancellation_reason ?? 'This session was cancelled.'}</Text>
-            </View>
-          )}
+          <View style={styles.heroReasonBox}>
+            <Text style={styles.heroReasonLabel}>Why</Text>
+            <Text style={styles.heroReasonText}>{session.cancellation_reason ?? 'This session was cancelled.'}</Text>
+          </View>
 
           <View style={styles.heroDetails}>
             <View style={styles.heroDetail}>
@@ -488,29 +698,15 @@ export default function MatchSessionDetail() {
               <Text style={styles.heroDetailLabel}>Players joined</Text>
               <Text style={styles.heroDetailValue}>{homeCount + awayCount}</Text>
             </View>
-            {session.phase === 'funded' && (
-              <View style={styles.heroDetail}>
-                <Text style={styles.heroDetailLabel}>Total collected</Text>
-                <Text style={styles.heroDetailValue}>KES {amount_paid_so_far.toLocaleString()}</Text>
-              </View>
-            )}
           </View>
 
           <View style={styles.heroActions}>
-            {session.phase === 'funded' ? (
-              <Pressable style={styles.btn} onPress={() => router.push('/player/bookings')}>
-                <Text style={styles.btnText}>View my bookings</Text>
-              </Pressable>
-            ) : (
-              <>
-                <Pressable style={styles.btn} onPress={() => router.push(`/player/explore/${session.venue.id}`)}>
-                  <Text style={styles.btnText}>Book {session.venue.name} again</Text>
-                </Pressable>
-                <Pressable style={[styles.btn, styles.btnOutline]} onPress={() => router.push('/player/bookings')}>
-                  <Text style={styles.btnOutlineText}>Back to bookings</Text>
-                </Pressable>
-              </>
-            )}
+            <Pressable style={styles.btn} onPress={() => router.push(`/player/explore/${session.venue.id}`)}>
+              <Text style={styles.btnText}>Book {session.venue.name} again</Text>
+            </Pressable>
+            <Pressable style={[styles.btn, styles.btnOutline]} onPress={() => router.push('/player/bookings')}>
+              <Text style={styles.btnOutlineText}>Back to bookings</Text>
+            </Pressable>
           </View>
         </View>
       ) : (
@@ -887,7 +1083,6 @@ const styles = StyleSheet.create({
   } as any,
   heroIconRingMuted: { backgroundImage: `radial-gradient(circle, ${colors.surface2}, transparent 70%)` } as any,
   heroIconBig: { fontSize: 40 },
-  confettiDot: { position: 'absolute', width: 8, height: 8, borderRadius: 4 } as any,
   heroTitle: { fontFamily: fonts.serif, fontSize: 24, color: colors.text, marginBottom: 10 },
   heroBody: { fontFamily: fonts.sans, fontSize: 14, color: colors.textSoft, textAlign: 'center', lineHeight: 21, marginBottom: 22, maxWidth: 440 },
   heroReasonBox: {
@@ -903,6 +1098,93 @@ const styles = StyleSheet.create({
   heroReasonLabel: { fontFamily: fonts.sansBold, fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.danger, marginBottom: 6, textAlign: 'center' },
   heroReasonText: { fontFamily: fonts.sansMedium, fontSize: 13.5, color: colors.text, textAlign: 'center', lineHeight: 19 },
   heroActions: { flexDirection: 'row', gap: 12, flexWrap: 'wrap', justifyContent: 'center' },
+
+  // Fixed-dark "floodlit stadium" panel — literal colors throughout
+  // (never colors.text/colors.bg), since this deliberately ignores the
+  // site's light/dark toggle. See the big comment above the icon/keyframe
+  // constants for why.
+  successHero: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: radius.lg,
+    marginBottom: 18,
+    backgroundColor: '#10140F',
+    backgroundImage:
+      'radial-gradient(60% 50% at 15% 0%, rgba(232,182,90,0.35), transparent 60%), radial-gradient(55% 45% at 85% 0%, rgba(60,122,92,0.30), transparent 60%), linear-gradient(180deg, #171C14 0%, #0E120D 100%)',
+  } as any,
+  confettiLayer: { position: 'absolute', top: 0, left: 0, right: 0, height: 260, overflow: 'hidden' },
+  confettiPiece: { position: 'absolute', top: 0 } as any,
+  successContent: { alignItems: 'center', paddingVertical: 44, paddingHorizontal: 24, position: 'relative', zIndex: 1 },
+
+  successKicker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.09)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    borderRadius: radius.pill,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    marginBottom: 22,
+  },
+  successKickerDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#3C7A5C' },
+  successKickerText: { fontFamily: fonts.sansBold, fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, color: 'rgba(255,255,255,0.85)' },
+
+  successBadgeWrap: { width: 116, height: 116, alignItems: 'center', justifyContent: 'center', marginBottom: 22 },
+  successPulseRing: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginTop: -55,
+    marginLeft: -55,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    borderWidth: 2,
+    borderColor: '#E8B65A',
+  } as any,
+  successBadge: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E8B65A',
+    boxShadow: '0 0 32px rgba(232,182,90,0.55)',
+    zIndex: 2,
+  } as any,
+
+  successTitle: { fontFamily: fonts.serif, fontSize: 40, color: '#FFFFFF', marginBottom: 10, letterSpacing: -0.5 },
+  successTitleAccent: { color: '#E8B65A' },
+  successSubtitle: { fontFamily: fonts.sans, fontSize: 14.5, color: 'rgba(255,255,255,0.72)', textAlign: 'center', lineHeight: 21, marginBottom: 30, maxWidth: 420 },
+
+  ticket: {
+    width: '100%',
+    maxWidth: 560,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    backgroundColor: '#FFFBF3',
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    marginBottom: 28,
+    boxShadow: '0 18px 40px rgba(0,0,0,0.35)',
+  } as any,
+  ticketStub: { flexBasis: 210, flexGrow: 1, padding: 22, alignItems: 'flex-start' },
+  ticketSportBadge: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#F3E7D2', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  ticketKicker: { fontFamily: fonts.sansBold, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.6, color: '#B08A4E', marginBottom: 3 },
+  ticketVenue: { fontFamily: fonts.serifMedium, fontSize: 17, color: '#1E2126', marginBottom: 5 },
+  ticketDate: { fontFamily: fonts.sans, fontSize: 13, color: '#6B6152' },
+  ticketDivider: { width: 0, borderLeftWidth: 1.5, borderStyle: 'dashed', borderLeftColor: 'rgba(30,33,38,0.22)', alignSelf: 'stretch', marginVertical: 18 } as any,
+  ticketStats: { flexBasis: 220, flexGrow: 1, padding: 22, gap: 16, justifyContent: 'center' },
+  ticketStat: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  ticketStatIcon: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#F3E7D2', alignItems: 'center', justifyContent: 'center' },
+  ticketStatLabel: { fontFamily: fonts.sansBold, fontSize: 9.5, textTransform: 'uppercase', letterSpacing: 0.5, color: '#B08A4E', marginBottom: 2 },
+  ticketStatValue: { fontFamily: fonts.sansSemiBold, fontSize: 13.5, color: '#1E2126' },
+
+  successActions: { flexDirection: 'row', justifyContent: 'center' },
+  successBtn: { backgroundColor: '#E8B65A', borderRadius: radius.pill, paddingVertical: 15, paddingHorizontal: 28, boxShadow: '0 8px 24px rgba(232,182,90,0.35)' } as any,
+  successBtnText: { fontFamily: fonts.sansBold, fontSize: 14.5, color: '#1E2126' },
 
   modalOverlay: {
     position: 'fixed' as any,
