@@ -15,6 +15,7 @@ import managersRoutes from "./routes/managers.routes.js";
 import notificationsRoutes from "./routes/notifications.routes.js";
 import { startMatchSessionExpiryJob } from "./jobs/expireMatchSessions.js";
 import { startResolvePayoutsJob } from "./jobs/resolvePayouts.js";
+import { startGameReminderJob } from "./jobs/sendGameReminders.js";
 import { requestLogger } from "./middleware/requestLogger.middleware.js";
 
 dotenv.config();
@@ -64,4 +65,5 @@ app.listen(PORT, () => {
   console.log(`🟢 Kicko backend running on http://localhost:${PORT}`);
   startMatchSessionExpiryJob();
   startResolvePayoutsJob();
+  startGameReminderJob();
 });
