@@ -12,6 +12,7 @@ import sessionsRoutes from "./routes/sessions.routes.js";
 import settingsRoutes from "./routes/settings.routes.js";
 import reviewsRoutes from "./routes/reviews.routes.js";
 import managersRoutes from "./routes/managers.routes.js";
+import teamsRoutes from "./routes/teams.routes.js";
 import notificationsRoutes from "./routes/notifications.routes.js";
 import { startMatchSessionExpiryJob } from "./jobs/expireMatchSessions.js";
 import { startSplitBookingExpiryJob } from "./jobs/expireSplitBookings.js";
@@ -54,6 +55,7 @@ app.use("/api/sessions", sessionsRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/reviews", reviewsRoutes);
 app.use("/api/managers", managersRoutes);
+app.use("/api/teams", teamsRoutes);
 app.use("/api/notifications", notificationsRoutes);
 
 // 404 handler

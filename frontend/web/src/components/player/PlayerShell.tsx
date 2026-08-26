@@ -50,6 +50,9 @@ function breadcrumbFor(pathname: string): Crumb[] {
   if (pathname.startsWith('/player/bookings/')) {
     return [{ label: 'Home', href: '/player' }, { label: 'Bookings', href: '/player/bookings' }, { label: 'Booking' }];
   }
+  if (pathname.startsWith('/player/teams/')) {
+    return [{ label: 'Home', href: '/player' }, { label: 'Teams', href: '/player/teams' }, { label: 'Team' }];
+  }
   return [{ label: 'Home' }];
 }
 
