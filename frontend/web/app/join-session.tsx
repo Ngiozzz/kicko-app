@@ -27,6 +27,10 @@ export default function JoinSession() {
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   const [displayName, setDisplayName] = useState('');
+  // Honeypot for the backend's bot check — real users never see or fill
+  // this field (see the Field with name="website" below); a scripted bot
+  // filling every input it finds will.
+  const [website, setWebsite] = useState('');
 
   const [authMode, setAuthMode] = useState<AuthMode>('signin');
   const [name, setName] = useState('');
@@ -80,7 +84,7 @@ export default function JoinSession() {
     setSubmitting(true);
     setError(null);
     try {
-      const { session, participant, claim_token } = await sessionsApi.join({ token, display_name: displayName.trim() || undefined });
+      const { session, participant, claim_token } = await sessionsApi.join({ token, display_name: displayName.trim() || undefined, website });
       setJoinedSessionId(session.id);
       setJoinedSide(participant.side);
       if (claim_token) {
@@ -211,6 +215,10 @@ export default function JoinSession() {
 
         {error && <Text style={styles.error}>{error}</Text>}
 
+        <View style={styles.honeypot} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          <Field label="Website" value={website} onChangeText={setWebsite} autoComplete="off" importantForAutofill="no" />
+        </View>
+
         {mustLogIn ? (
           <>
             <Text style={styles.sectionNote}>Becoming a captain needs a real Kicko account — log in or sign up to claim the spot.</Text>
@@ -250,6 +258,7 @@ export default function JoinSession() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg, padding: 20 },
+  honeypot: { position: 'absolute', left: -9999, top: -9999, height: 1, width: 1, overflow: 'hidden' },
   title: { fontFamily: fonts.serif, fontSize: 22, color: colors.text, marginTop: 14, marginBottom: 10 },
   body: { fontFamily: fonts.sans, fontSize: 14, color: colors.textSoft, lineHeight: 20, marginBottom: 10 },
   strong: { fontFamily: fonts.sansBold, color: colors.text, textTransform: 'capitalize' },

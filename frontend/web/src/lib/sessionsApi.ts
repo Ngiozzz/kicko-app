@@ -99,7 +99,7 @@ export const sessionsApi = {
   removeParticipant: (id: string, participantId: string) =>
     apiFetch<{ session: MatchSession }>(`/api/sessions/${id}/participants/${participantId}`, { method: 'DELETE' }),
   joinInfo: (token: string) => apiFetch<JoinInfo>(`/api/sessions/join-info?token=${encodeURIComponent(token)}`),
-  join: (input: { token: string; display_name?: string }) =>
+  join: (input: { token: string; display_name?: string; website?: string }) =>
     apiFetch<{ session: MatchSession; participant: SessionParticipant; claim_token?: string }>('/api/sessions/join', {
       method: 'POST',
       body: JSON.stringify(input),

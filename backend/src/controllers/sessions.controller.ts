@@ -564,7 +564,14 @@ export async function getJoinInfo(req: Request, res: Response) {
 
 /** Joins via an invite link — claims the away captaincy if unclaimed (login required), otherwise joins as a regular member (logged in) or an anonymous placeholder. */
 export async function joinViaLink(req: Request, res: Response) {
-  const { token, display_name } = req.body;
+  const { token, display_name, website } = req.body;
+  // Honeypot: "website" is a decoy field, hidden from real users by CSS and
+  // never sent by the actual join form — only a bot filling every field it
+  // finds would populate it. Bail out with the same shape a real failure
+  // gets, before ever touching the database.
+  if (typeof website === "string" && website.trim()) {
+    return res.status(400).json({ error: "Could not join this session." });
+  }
   if (typeof token !== "string" || !token) return res.status(400).json({ error: "token is required." });
 
   const { data: session, error } = await supabase

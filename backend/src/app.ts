@@ -18,10 +18,16 @@ import { startResolvePayoutsJob } from "./jobs/resolvePayouts.js";
 import { startGameReminderJob } from "./jobs/sendGameReminders.js";
 import { startReviewRequestJob } from "./jobs/sendReviewRequests.js";
 import { requestLogger } from "./middleware/requestLogger.middleware.js";
+import { apiLimiter } from "./middleware/rateLimit.middleware.js";
 
 dotenv.config();
 
 const app = express();
+
+// Render/Railway/etc. sit the app behind a reverse proxy — without this,
+// every request looks like it comes from the proxy's own IP and the
+// rate limiters below either block everyone together or nobody at all.
+app.set("trust proxy", 1);
 
 // ALLOWED_ORIGINS unset (local dev) => allow any origin. Set in production
 // to a comma-separated list, e.g. https://kicko-app.co.ke,https://www.kicko-app.co.ke
@@ -29,6 +35,7 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",").map((o) => o.trim
 app.use(cors(allowedOrigins?.length ? { origin: allowedOrigins } : {}));
 app.use(express.json());
 app.use(requestLogger);
+app.use("/api", apiLimiter);
 
 // Health check
 app.get("/", (req, res) => {

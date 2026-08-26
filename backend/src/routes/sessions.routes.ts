@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { optionalAuth, requireAuth } from "../middleware/auth.middleware.js";
+import { publicLimiter, sensitiveActionLimiter } from "../middleware/rateLimit.middleware.js";
 import {
   cancelSession,
   claimParticipant,
@@ -22,9 +23,10 @@ import {
 
 const router = Router();
 
-// Public — an invite link must be previewable/usable before login.
-router.get("/join-info", getJoinInfo);
-router.post("/join", optionalAuth, joinViaLink);
+// Public — an invite link must be previewable/usable before login. Tightly
+// limited since there's no account to throttle by, just token guessing/spam.
+router.get("/join-info", publicLimiter, getJoinInfo);
+router.post("/join", sensitiveActionLimiter, optionalAuth, joinViaLink);
 
 router.use(requireAuth);
 
@@ -34,14 +36,14 @@ router.get("/awaiting-decision/mine", getSessionsAwaitingMyDecision);
 router.get("/awaiting-completion/mine", getSessionsAwaitingMyCompletion);
 router.get("/:id", getSession);
 router.post("/:id/claim", claimParticipant);
-router.post("/:id/invite", inviteParticipant);
+router.post("/:id/invite", sensitiveActionLimiter, inviteParticipant);
 router.post("/:id/respond", respondToInvite);
 router.post("/:id/complete-roster", completeRoster);
 router.post("/:id/resplit", resplitSession);
 router.post("/:id/cancel", cancelSession);
 router.get("/:id/topup-owed", getTopUpOwed);
-router.post("/:id/pay", payMyShare);
-router.post("/:id/pay-topup", payTopUp);
+router.post("/:id/pay", sensitiveActionLimiter, payMyShare);
+router.post("/:id/pay-topup", sensitiveActionLimiter, payTopUp);
 router.delete("/:id/participants/:participantId", removeParticipant);
 
 export default router;
