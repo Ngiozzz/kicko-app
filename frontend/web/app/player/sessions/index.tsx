@@ -5,6 +5,7 @@ import { colors, fonts, radius } from '@kicko/shared';
 import { sessionsApi, OpenSessionSummary } from '../../../src/lib/sessionsApi';
 import { bookingsApi, OpenBookingSummary } from '../../../src/lib/bookingsApi';
 import { SportIcon, Sport } from '../../../src/components/SportIcon';
+import { getSportContent } from '../../../src/content/sportContent';
 
 function RowThumb({ photo, sport }: { photo: string | null; sport: string }) {
   return (
@@ -35,6 +36,9 @@ type Row = {
 // meaningful there instead.
 function sessionRow(o: OpenSessionSummary): Row {
   const totalIn = o.home_count + o.away_count;
+  const formatLabel = o.session.format
+    ? getSportContent(o.session.venue.sport).sessionFormats.find((f) => f.key === o.session.format)?.label ?? o.session.format
+    : null;
   return {
     key: `session-${o.session.id}`,
     href: `/player/sessions/${o.session.id}`,
@@ -43,7 +47,7 @@ function sessionRow(o: OpenSessionSummary): Row {
     venueName: o.session.venue.name,
     location: o.session.venue.location,
     startAt: o.session.start_at,
-    kindLabel: 'Open session',
+    kindLabel: formatLabel ? `Open · ${formatLabel}` : 'Open session',
     detail: `${totalIn} player${totalIn === 1 ? '' : 's'} joined so far · KES ${o.session.total_cost.toLocaleString()} total`,
   };
 }

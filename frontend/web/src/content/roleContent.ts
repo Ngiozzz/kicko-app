@@ -36,7 +36,7 @@ export const roleContent: Record<Role, RoleData> = {
       },
       {
         q: 'What sports does Kicko support?',
-        a: 'Football, basketball, tennis, padel, and volleyball to start, with more sports planned.',
+        a: 'Football, basketball, tennis, padel, volleyball, and rugby to start, with more sports planned.',
       },
       {
         q: 'How will I book a court?',
@@ -72,7 +72,7 @@ export const roleContent: Record<Role, RoleData> = {
       },
       {
         q: 'What sports can I list?',
-        a: 'Football, basketball, tennis, padel, and volleyball courts are all supported.',
+        a: 'Football, basketball, tennis, padel, volleyball, and rugby venues are all supported.',
       },
     ],
   },

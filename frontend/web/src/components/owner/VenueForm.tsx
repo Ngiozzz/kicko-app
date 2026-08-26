@@ -13,6 +13,7 @@ const SPORTS: { sport: Sport; label: string }[] = [
   { sport: 'tennis', label: 'Tennis' },
   { sport: 'padel', label: 'Padel' },
   { sport: 'volleyball', label: 'Volleyball' },
+  { sport: 'rugby', label: 'Rugby' },
 ];
 
 const PAYOUT_TYPES: { type: PayoutType; label: string }[] = [

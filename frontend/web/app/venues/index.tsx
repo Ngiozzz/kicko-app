@@ -182,7 +182,7 @@ export default function PublicVenues() {
     <ScrollView style={styles.root}>
       <Head>
         <title>Browse sports venues in Kenya | Kicko</title>
-        <meta name="description" content="Find and book football, basketball, tennis, padel, and volleyball venues near you on Kicko." />
+        <meta name="description" content="Find and book football, basketball, tennis, padel, volleyball, and rugby venues near you on Kicko." />
       </Head>
       <PublicVenuesNav />
 

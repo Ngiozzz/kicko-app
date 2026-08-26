@@ -235,9 +235,12 @@ export async function recomputeSessionFunding(sessionParticipantId: string) {
 export async function createSession(req: Request, res: Response) {
   if (req.user!.role !== "player") return res.status(403).json({ error: "Only players can start a match session." });
 
-  const { venue_id, start_at, end_at, is_open } = req.body;
+  const { venue_id, start_at, end_at, is_open, format } = req.body;
   if (typeof venue_id !== "string" || typeof start_at !== "string" || typeof end_at !== "string") {
     return res.status(400).json({ error: "venue_id, start_at, and end_at are required." });
+  }
+  if (format !== undefined && format !== null && typeof format !== "string") {
+    return res.status(400).json({ error: "format must be a string." });
   }
 
   const start = new Date(start_at);
@@ -265,6 +268,7 @@ export async function createSession(req: Request, res: Response) {
       phase: "joining",
       phase_deadline: minutesFromNow(settings.session_join_window_minutes),
       is_open: is_open === true,
+      format: format ?? null,
     })
     .select(SESSION_SELECT)
     .single();

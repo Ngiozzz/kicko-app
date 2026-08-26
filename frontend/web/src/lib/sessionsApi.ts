@@ -20,6 +20,9 @@ export type MatchSession = {
   // before this existed. Open means publicly listed under "Open Sessions"
   // and joinable by any logged-in player with no invite at all.
   is_open: boolean;
+  // Purely descriptive game-type (e.g. rugby's sevens/fifteens/touch) —
+  // see sportContent.ts#SessionFormat. Null for sports with only one shape.
+  format: string | null;
   cancellation_reason: string | null;
   home_invite_token: string;
   away_invite_token: string;
@@ -95,7 +98,7 @@ export const sessionsApi = {
   awaitingCompletion: () => apiFetch<{ sessions: MatchSession[] }>('/api/sessions/awaiting-completion/mine'),
   get: (id: string) => apiFetch<SessionDetail>(`/api/sessions/${id}`),
   open: () => apiFetch<{ sessions: OpenSessionSummary[] }>('/api/sessions/open'),
-  create: (input: { venue_id: string; start_at: string; end_at: string; is_open?: boolean }) =>
+  create: (input: { venue_id: string; start_at: string; end_at: string; is_open?: boolean; format?: string }) =>
     apiFetch<{ session: MatchSession }>('/api/sessions', { method: 'POST', body: JSON.stringify(input) }),
   joinOpen: (id: string, side: SessionSide) =>
     apiFetch<{ session: MatchSession; participant: SessionParticipant }>(`/api/sessions/${id}/join-open`, { method: 'POST', body: JSON.stringify({ side }) }),

@@ -56,6 +56,9 @@ export default function ExploreVenueDetail() {
   // same as every session before this existed; open is publicly listed
   // under "Open Sessions" and joinable with no invite at all.
   const [isOpenSession, setIsOpenSession] = useState(false);
+  // Purely descriptive game-type for squad sports played in more than one
+  // shape (rugby: sevens/fifteens/touch) — see sportContent.ts#SessionFormat.
+  const [sessionFormat, setSessionFormat] = useState<string | null>(null);
   const [stage, setStage] = useState<Stage>('form');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -87,6 +90,12 @@ export default function ExploreVenueDetail() {
     setSplitFormat(first.key);
     setPartnerPhones(Array(first.totalPlayers - 1).fill(''));
     setPartnerOpen(Array(first.totalPlayers - 1).fill(false));
+  }, [venue?.sport]);
+
+  // Same idea for a squad sport's game-type picker (rugby: sevens leads).
+  useEffect(() => {
+    if (!venue) return;
+    setSessionFormat(getSportContent(venue.sport).sessionFormats[0]?.key ?? null);
   }, [venue?.sport]);
 
   async function submitReview() {
@@ -190,6 +199,7 @@ export default function ExploreVenueDetail() {
         start_at: selectionRange.start.toISOString(),
         end_at: selectionRange.end.toISOString(),
         is_open: isOpenSession,
+        format: sessionFormat ?? undefined,
       });
       router.push(`/player/sessions/${session.id}`);
     } catch (err) {
@@ -513,6 +523,23 @@ export default function ExploreVenueDetail() {
               </>
             ) : (
               <>
+                {sportContent.sessionFormats.length > 0 && (
+                  <>
+                    <Text style={styles.fieldLabel}>Game type</Text>
+                    <View style={styles.modeToggle}>
+                      {sportContent.sessionFormats.map((f) => (
+                        <Pressable
+                          key={f.key}
+                          onPress={() => setSessionFormat(f.key)}
+                          style={[styles.modeOption, sessionFormat === f.key && styles.modeOptionActive]}
+                        >
+                          <Text style={[styles.modeOptionText, sessionFormat === f.key && styles.modeOptionTextActive]}>{f.label}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </>
+                )}
+
                 <Text style={styles.splitNote}>
                   You'll invite two sides ({sportContent.sideNames.home} &amp; {sportContent.sideNames.away}), and everyone pays their own share once
                   the roster's set.

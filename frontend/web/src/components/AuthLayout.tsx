@@ -13,6 +13,7 @@ const SPORTS: { sport: Sport; label: string }[] = [
   { sport: 'tennis', label: 'Tennis' },
   { sport: 'padel', label: 'Padel' },
   { sport: 'volleyball', label: 'Volleyball' },
+  { sport: 'rugby', label: 'Rugby' },
 ];
 
 // The same ring mark that's on each sport's own icon (Kicko/docs/Images/

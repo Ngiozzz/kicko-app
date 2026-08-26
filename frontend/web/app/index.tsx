@@ -23,6 +23,7 @@ const COLLAGE: { sport: Sport; size: number; top: number; left: number; rotate: 
   { sport: 'tennis', size: 50, top: 30, left: 268, rotate: '16deg' },
   { sport: 'padel', size: 56, top: 226, left: 196, rotate: '-13deg' },
   { sport: 'volleyball', size: 46, top: 244, left: 44, rotate: '7deg' },
+  { sport: 'rugby', size: 48, top: 100, left: 220, rotate: '20deg' },
 ];
 
 function IconCollage() {

@@ -680,6 +680,9 @@ export default function MatchSessionDetail() {
           <View style={styles.titleRow}>
             <SportIcon sport={session.venue.sport as Sport} size={20} />
             <Text style={styles.title}>{session.venue.name}</Text>
+            {session.format && (
+              <Text style={styles.formatTag}>{sportContent.sessionFormats.find((f) => f.key === session.format)?.label ?? session.format}</Text>
+            )}
           </View>
           <Text style={styles.subtitle}>
             {new Date(session.start_at).toLocaleString('en-KE', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}
@@ -985,6 +988,18 @@ const styles = StyleSheet.create({
   headRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 20 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   title: { fontFamily: fonts.serif, fontSize: 24, color: colors.text },
+  formatTag: {
+    fontFamily: fonts.sansBold,
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    color: colors.accent,
+    backgroundColor: colors.accentSoft,
+    paddingVertical: 4,
+    paddingHorizontal: 9,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+  },
   subtitle: { fontFamily: fonts.sans, fontSize: 13.5, color: colors.textSoft, marginTop: 4 },
   cancelBtn: { borderWidth: 1, borderColor: colors.danger, borderRadius: radius.pill, paddingVertical: 8, paddingHorizontal: 16 },
   cancelBtnText: { fontFamily: fonts.sansSemiBold, fontSize: 12.5, color: colors.danger },

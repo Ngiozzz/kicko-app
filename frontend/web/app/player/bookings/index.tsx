@@ -5,6 +5,7 @@ import { colors, fonts, radius, supabase } from '@kicko/shared';
 import { bookingsApi, Booking } from '../../../src/lib/bookingsApi';
 import { sessionsApi, MatchSession } from '../../../src/lib/sessionsApi';
 import { SportIcon, Sport } from '../../../src/components/SportIcon';
+import { getSportContent } from '../../../src/content/sportContent';
 
 function RowThumb({ photo, sport }: { photo: string | null; sport: string }) {
   return (
@@ -159,7 +160,7 @@ export default function PlayerBookings() {
         startAt: s.start_at,
         amount: s.total_cost,
         kind: 'session',
-        detailNote: `${s.accepted_count ?? 0} player${s.accepted_count === 1 ? '' : 's'} accepted · ${s.organizer_id === userId ? 'Organized by you' : "Joined a friend's session"}`,
+        detailNote: `${s.format ? `${getSportContent(s.venue.sport).sessionFormats.find((f) => f.key === s.format)?.label ?? s.format} · ` : ''}${s.accepted_count ?? 0} player${s.accepted_count === 1 ? '' : 's'} accepted · ${s.organizer_id === userId ? 'Organized by you' : "Joined a friend's session"}`,
         badge: sessionBadge(s),
         filterBucket: s.phase === 'cancelled' ? 'cancelled' : 'upcoming',
       }));

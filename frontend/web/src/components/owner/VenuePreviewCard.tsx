@@ -9,6 +9,7 @@ const SPORT_LABEL: Record<Sport, string> = {
   tennis: 'Tennis',
   padel: 'Padel',
   volleyball: 'Volleyball',
+  rugby: 'Rugby',
 };
 
 export type PreviewStatusTone = 'pending' | 'verified' | 'suspended';
