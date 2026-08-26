@@ -5,6 +5,7 @@ import { apiFetch, colors, fonts, supabase } from '@kicko/shared';
 import { Button, Card, Field } from '../src/components/ui';
 import { LogoMark } from '../src/components/Logo';
 import { sessionsApi, JoinInfo } from '../src/lib/sessionsApi';
+import { getSportContent } from '../src/content/sportContent';
 
 // Lives outside /player/* on purpose — that layout redirects to sign-in
 // unconditionally, but an invite link has to be previewable (and, for a
@@ -160,7 +161,10 @@ export default function JoinSession() {
         <Card>
           <LogoMark size={28} />
           <Text style={styles.title}>You're in!</Text>
-          <Text style={styles.body}>You joined the {joinedSide} side of the session at {info?.venue.name}.</Text>
+          <Text style={styles.body}>
+            You joined the {joinedSide === 'home' ? getSportContent(info?.venue.sport).sideNames.home : getSportContent(info?.venue.sport).sideNames.away} side of the
+            session at {info?.venue.name}.
+          </Text>
 
           {currentUserName ? (
             <Button title="Go to the session" onPress={() => router.replace(`/player/sessions/${joinedSessionId}`)} />
@@ -200,7 +204,9 @@ export default function JoinSession() {
           {new Date(info.start_at).toLocaleString('en-KE', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}
         </Text>
         <Text style={styles.body}>
-          You'll be joining the <Text style={styles.strong}>{info.side}</Text> side{info.will_become_captain ? ', as its captain' : ''}. {info.headcount} already accepted.
+          You'll be joining the{' '}
+          <Text style={styles.strong}>{info.side === 'home' ? getSportContent(info.venue.sport).sideNames.home : getSportContent(info.venue.sport).sideNames.away}</Text>{' '}
+          side{info.will_become_captain ? ', as its captain' : ''}. {info.headcount} already accepted.
         </Text>
 
         {error && <Text style={styles.error}>{error}</Text>}

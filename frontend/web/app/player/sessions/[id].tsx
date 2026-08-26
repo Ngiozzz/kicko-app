@@ -13,6 +13,7 @@ import {
 } from '../../../src/lib/sessionsApi';
 import { Payment } from '../../../src/lib/bookingsApi';
 import { SportIcon, Sport } from '../../../src/components/SportIcon';
+import { getSportContent, SportContent } from '../../../src/content/sportContent';
 import { useCountdown } from '../../../src/lib/useCountdown';
 import { copyToClipboard } from '../../../src/lib/copyToClipboard';
 import { useBreadcrumb } from '../../../src/lib/breadcrumbContext';
@@ -214,6 +215,7 @@ function ParticipantRow({ p, canManage, onRemove, removing }: { p: SessionPartic
 // is what actually sells the matchday framing.
 function SideRosterCard({
   side,
+  sportContent,
   rows,
   isOrganizer,
   isCaptain,
@@ -224,6 +226,7 @@ function SideRosterCard({
   onRemove,
 }: {
   side: SessionSide;
+  sportContent: SportContent;
   rows: SessionParticipant[] | { redacted: true; count: number };
   isOrganizer: boolean;
   isCaptain: boolean;
@@ -237,9 +240,9 @@ function SideRosterCard({
     <View style={[styles.sideCard, side === 'home' ? styles.sideCardHome : styles.sideCardAway]}>
       <View style={styles.sideHeader}>
         <View style={[styles.sideBadge, side === 'home' ? styles.sideBadgeHome : styles.sideBadgeAway]}>
-          <Text style={styles.sideBadgeText}>{side === 'home' ? 'H' : 'A'}</Text>
+          <Text style={styles.sideBadgeText}>{side === 'home' ? sportContent.sideInitials.home : sportContent.sideInitials.away}</Text>
         </View>
-        <Text style={styles.sideTitle}>{side === 'home' ? 'Home' : 'Away'}</Text>
+        <Text style={styles.sideTitle}>{side === 'home' ? sportContent.sideNames.home : sportContent.sideNames.away}</Text>
       </View>
       {isRedacted(rows) ? (
         <View style={styles.redactedPanel}>
@@ -296,6 +299,7 @@ function MatchSuccessHero({
   onViewBookings: () => void;
 }) {
   const when = new Date(startAt).toLocaleString('en-KE', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+  const sportContent = getSportContent(sport);
 
   return (
     <View style={styles.successHero}>
@@ -350,7 +354,7 @@ function MatchSuccessHero({
           Game <Text style={styles.successTitleAccent}>on.</Text>
         </Text>
         <Text style={[styles.successSubtitle, { animationKeyframes: fadeUpKeyframes, animationDuration: '0.5s', animationDelay: '0.22s', animationFillMode: 'both' } as any]}>
-          Everyone's paid their share — see you on the pitch.
+          Everyone's paid their share — see you on the {sportContent.venueWord}.
         </Text>
 
         <View style={[styles.ticket, { animationKeyframes: fadeUpKeyframes, animationDuration: '0.55s', animationDelay: '0.3s', animationFillMode: 'both' } as any]}>
@@ -638,6 +642,7 @@ export default function MatchSessionDetail() {
   const isTerminal = session.phase === 'funded' || session.phase === 'cancelled';
   const homeCount = isRedacted(home) ? home.count : home.length;
   const awayCount = isRedacted(away) ? away.count : away.length;
+  const sportContent = getSportContent(session.venue.sport);
 
   return (
     <View>
@@ -737,8 +742,13 @@ export default function MatchSessionDetail() {
       {session.phase === 'joining' && (home_join_link || away_join_link) && (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Invite links</Text>
-          {home_join_link && <CopyLinkRow label="Home side" token={home_join_link} />}
-          {away_join_link && <CopyLinkRow label={away_join_link === session.away_invite_token && detail.caller_side === 'away' ? 'Your team' : 'Away captain'} token={away_join_link} />}
+          {home_join_link && <CopyLinkRow label={`${sportContent.sideNames.home} side`} token={home_join_link} />}
+          {away_join_link && (
+            <CopyLinkRow
+              label={away_join_link === session.away_invite_token && detail.caller_side === 'away' ? 'Your team' : `${sportContent.sideNames.away} captain`}
+              token={away_join_link}
+            />
+          )}
         </View>
       )}
 
@@ -866,6 +876,7 @@ export default function MatchSessionDetail() {
       <View style={styles.rosterGrid}>
         <SideRosterCard
           side="home"
+          sportContent={sportContent}
           rows={home}
           isOrganizer={is_organizer}
           isCaptain={is_captain}
@@ -882,6 +893,7 @@ export default function MatchSessionDetail() {
         </View>
         <SideRosterCard
           side="away"
+          sportContent={sportContent}
           rows={away}
           isOrganizer={is_organizer}
           isCaptain={is_captain}

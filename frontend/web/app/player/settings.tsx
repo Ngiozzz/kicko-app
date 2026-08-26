@@ -3,6 +3,7 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, Switch, Text, View 
 import { apiFetch, colors, fonts, radius } from '@kicko/shared';
 import { Button, Field } from '../../src/components/ui';
 import { SportIcon, Sport } from '../../src/components/SportIcon';
+import { getSportContent } from '../../src/content/sportContent';
 import { isDarkMode, setDarkMode } from '../../src/lib/theme';
 
 type Account = { name: string; email: string; phone: string | null; sport: string | null; position: string | null };
@@ -14,8 +15,6 @@ const SPORTS: { sport: Sport; label: string }[] = [
   { sport: 'padel', label: 'Padel' },
   { sport: 'volleyball', label: 'Volleyball' },
 ];
-
-const POSITIONS = ['Midfielder', 'Forward', 'Defender', 'Goalkeeper'];
 
 function SettingsCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -163,17 +162,21 @@ export default function PlayerSettings() {
               );
             })}
           </View>
-          <Text style={[styles.pickerLabel, { marginTop: 14 }]}>Position</Text>
-          <View style={styles.sportRow}>
-            {POSITIONS.map((p) => {
-              const active = position === p;
-              return (
-                <Pressable key={p} onPress={() => setPosition(p)} style={[styles.pill, active && styles.pillActive]}>
-                  <Text style={[styles.pillText, active && styles.pillTextActive]}>{p}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          {getSportContent(sport).positions.length > 0 && (
+            <>
+              <Text style={[styles.pickerLabel, { marginTop: 14 }]}>Position</Text>
+              <View style={styles.sportRow}>
+                {getSportContent(sport).positions.map((p) => {
+                  const active = position === p;
+                  return (
+                    <Pressable key={p} onPress={() => setPosition(p)} style={[styles.pill, active && styles.pillActive]}>
+                      <Text style={[styles.pillText, active && styles.pillTextActive]}>{p}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
+          )}
           {prefSaved ? <Text style={[styles.saved, { marginTop: 14 }]}>Saved.</Text> : null}
           <Button title={prefSaving ? 'Saving…' : 'Save preferences'} onPress={handleSavePreferences} disabled={prefSaving} />
         </SettingsCard>
