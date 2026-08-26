@@ -63,6 +63,16 @@ export function OpenSessionsIcon({ size = 17, color }: IconProps) {
   );
 }
 
+export function TournamentIcon({ size = 17, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M7 4h10v5a5 5 0 0 1-10 0V4Z" />
+      <Path d="M7 5H4.5a1.5 1.5 0 0 0 0 3H7M17 5h2.5a1.5 1.5 0 0 1 0 3H17" />
+      <Path d="M12 14v3M9 20.5h6M10 20.5v-2.7M14 20.5v-2.7" />
+    </Svg>
+  );
+}
+
 export function SettingsIcon({ size = 17, color }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">

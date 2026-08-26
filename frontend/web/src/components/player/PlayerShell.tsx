@@ -4,7 +4,7 @@ import { Link, router, usePathname } from 'expo-router';
 import { colors, fonts, radius } from '@kicko/shared';
 import { LogoMark } from '../Logo';
 import { supabase } from '@kicko/shared';
-import { BookingsIcon, HomeIcon, ManagersIcon, OpenSessionsIcon, SearchIcon, SettingsIcon, SidebarToggleIcon } from '../owner/icons';
+import { BookingsIcon, HomeIcon, ManagersIcon, OpenSessionsIcon, SearchIcon, SettingsIcon, SidebarToggleIcon, TournamentIcon } from '../owner/icons';
 import { BreadcrumbProvider, useBreadcrumbOverride } from '../../lib/breadcrumbContext';
 import { NotifBell } from '../NotifBell';
 import { useIsMobile } from '../../lib/useIsMobile';
@@ -22,6 +22,7 @@ const ACTIVITY_ITEMS: NavItem[] = [
   { label: 'Bookings', href: '/player/bookings', icon: BookingsIcon },
   { label: 'Open Sessions', href: '/player/sessions', icon: OpenSessionsIcon },
   { label: 'Teams', href: '/player/teams', icon: ManagersIcon },
+  { label: 'Tournaments', href: '/player/tournaments', icon: TournamentIcon },
 ];
 
 type Crumb = { label: string; href?: string };
@@ -32,6 +33,7 @@ const BREADCRUMBS: Record<string, Crumb[]> = {
   '/player/bookings': [{ label: 'Home', href: '/player' }, { label: 'Bookings' }],
   '/player/sessions': [{ label: 'Home', href: '/player' }, { label: 'Open Sessions' }],
   '/player/teams': [{ label: 'Home', href: '/player' }, { label: 'Teams' }],
+  '/player/tournaments': [{ label: 'Home', href: '/player' }, { label: 'Tournaments' }],
   '/player/settings': [{ label: 'Home', href: '/player' }, { label: 'Settings' }],
 };
 
@@ -55,6 +57,9 @@ function breadcrumbFor(pathname: string): Crumb[] {
   }
   if (pathname.startsWith('/player/teams/')) {
     return [{ label: 'Home', href: '/player' }, { label: 'Teams', href: '/player/teams' }, { label: 'Team' }];
+  }
+  if (pathname.startsWith('/player/tournaments/')) {
+    return [{ label: 'Home', href: '/player' }, { label: 'Tournaments', href: '/player/tournaments' }, { label: 'Tournament' }];
   }
   return [{ label: 'Home' }];
 }

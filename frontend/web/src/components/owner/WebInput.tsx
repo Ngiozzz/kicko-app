@@ -53,6 +53,23 @@ export function NumberField({
   );
 }
 
+export function DateTimeField({
+  label,
+  value,
+  onChangeText,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (value: string) => void;
+}) {
+  return (
+    <View style={styles.field}>
+      <Text style={styles.label}>{label}</Text>
+      <input type="datetime-local" value={value} onChange={(e) => onChangeText(e.target.value)} style={baseInputStyle} />
+    </View>
+  );
+}
+
 export function TimeField({
   label,
   value,

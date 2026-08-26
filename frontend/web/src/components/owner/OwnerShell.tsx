@@ -4,7 +4,7 @@ import { Link, router, usePathname } from 'expo-router';
 import { colors, fonts, radius } from '@kicko/shared';
 import { LogoMark } from '../Logo';
 import { supabase } from '@kicko/shared';
-import { BookingsIcon, HomeIcon, ManagersIcon, PaymentsIcon, SearchIcon, VenuesIcon } from './icons';
+import { BookingsIcon, HomeIcon, ManagersIcon, PaymentsIcon, SearchIcon, TournamentIcon, VenuesIcon } from './icons';
 import { BreadcrumbProvider, useBreadcrumbOverride } from '../../lib/breadcrumbContext';
 import { NotifBell } from '../NotifBell';
 import { useIsMobile } from '../../lib/useIsMobile';
@@ -18,6 +18,7 @@ const OVERVIEW_ITEMS: NavItem[] = [
   { label: 'Home', href: '/owner', icon: HomeIcon },
   { label: 'Venues', href: '/owner/venues', icon: VenuesIcon },
   { label: 'Bookings', href: '/owner/bookings', icon: BookingsIcon },
+  { label: 'Tournaments', href: '/owner/tournaments', icon: TournamentIcon },
   { label: 'Payments', href: '/owner/payments', icon: PaymentsIcon },
 ];
 const TEAM_ITEMS: NavItem[] = [{ label: 'Managers', href: '/owner/managers', icon: ManagersIcon }];
@@ -32,6 +33,8 @@ const BREADCRUMBS: Record<string, Crumb[]> = {
   '/owner/venues': [{ label: 'Home', href: '/owner' }, { label: 'My Venues' }],
   '/owner/venues/new': [{ label: 'Home', href: '/owner' }, { label: 'My Venues', href: '/owner/venues' }, { label: 'Add venue' }],
   '/owner/bookings': [{ label: 'Home', href: '/owner' }, { label: 'Bookings' }],
+  '/owner/tournaments': [{ label: 'Home', href: '/owner' }, { label: 'Tournaments' }],
+  '/owner/tournaments/new': [{ label: 'Home', href: '/owner' }, { label: 'Tournaments', href: '/owner/tournaments' }, { label: 'New tournament' }],
   '/owner/payments': [{ label: 'Home', href: '/owner' }, { label: 'Payments' }],
   '/owner/managers': [{ label: 'Home', href: '/owner' }, { label: 'Managers' }],
   '/owner/settings': [{ label: 'Home', href: '/owner' }, { label: 'Settings' }],
@@ -50,6 +53,9 @@ function breadcrumbFor(pathname: string): Crumb[] {
   }
   if (pathname.startsWith('/owner/venues/')) {
     return [{ label: 'Home', href: '/owner' }, { label: 'My Venues', href: '/owner/venues' }, { label: 'Venue' }];
+  }
+  if (pathname.startsWith('/owner/tournaments/')) {
+    return [{ label: 'Home', href: '/owner' }, { label: 'Tournaments', href: '/owner/tournaments' }, { label: 'Tournament' }];
   }
   return [{ label: 'Home' }];
 }

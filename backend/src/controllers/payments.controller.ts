@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { supabase } from "../config/supabase.js";
 import { recomputeSessionFunding } from "./sessions.controller.js";
 import { recomputeSplitBookingFunding } from "./bookings.controller.js";
+import { confirmTournamentEntry } from "./tournaments.controller.js";
 import { notify } from "../services/notifications.service.js";
 import { sendTemplatedEmail } from "../services/email.service.js";
 import { sendSms } from "../services/sms.service.js";
@@ -114,6 +115,11 @@ export async function confirmPayment(req: Request, res: Response) {
     await supabase.from("booking_participants").update({ paid: true, paid_amount: payment.amount }).eq("booking_id", payment.booking_id).eq("user_id", payment.payer_id);
     const { booking, funded } = await recomputeSplitBookingFunding(payment.booking_id);
     return res.status(200).json({ booking, funded });
+  }
+
+  if (payment.purpose === "tournament_entry") {
+    const { registration } = await confirmTournamentEntry(payment.tournament_team_id);
+    return res.status(200).json({ registration });
   }
 
   res.status(200).json({ payment: { ...payment, status: "success" } });
