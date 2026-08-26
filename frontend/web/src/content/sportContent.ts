@@ -49,6 +49,21 @@ const TENNIS: SportContent = {
   ],
 };
 
+// Padel is almost always doubles — courts are purpose-built 4-wall
+// enclosures, singles is the occasional exception rather than the norm
+// (the reverse of tennis) — so doubles leads here, unlike TENNIS above.
+const PADEL: SportContent = {
+  venueWord: 'court',
+  sideNames: { home: 'Home', away: 'Away' }, // unused — bookingMode: 'pair' never renders sides
+  sideInitials: { home: 'H', away: 'A' },
+  positions: [],
+  bookingMode: 'pair',
+  pairFormats: [
+    { key: 'doubles', label: 'Doubles', totalPlayers: 4 },
+    { key: 'singles', label: 'Singles', totalPlayers: 2 },
+  ],
+};
+
 // Sports without an entry here fall back to football's side/venue wording
 // (their session flow isn't designed yet) but get no positions, since
 // showing football positions on a padel or tennis profile would be wrong.
@@ -56,6 +71,7 @@ const SPORT_CONTENT: Partial<Record<Sport, SportContent>> = {
   football: FOOTBALL,
   basketball: BASKETBALL,
   tennis: TENNIS,
+  padel: PADEL,
 };
 
 export function getSportContent(sport: string | null | undefined): SportContent {

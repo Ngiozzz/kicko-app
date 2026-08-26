@@ -70,6 +70,17 @@ export default function ExploreVenueDetail() {
       .catch((err) => setError(err instanceof Error ? err.message : 'Could not load venue.'));
   }, [id]);
 
+  // Defaults the split format to whichever this sport leads with (doubles
+  // for padel, singles for tennis) once we know what venue we're on —
+  // the state above has to exist before that's known.
+  useEffect(() => {
+    if (!venue) return;
+    const first = getSportContent(venue.sport).pairFormats[0];
+    if (!first) return;
+    setSplitFormat(first.key);
+    setPartnerPhones(Array(first.totalPlayers - 1).fill(''));
+  }, [venue?.sport]);
+
   async function submitReview() {
     if (!id || !eligibleBookingId) return;
     setSubmittingReview(true);
