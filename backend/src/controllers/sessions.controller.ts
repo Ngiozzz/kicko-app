@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import type { Request, Response } from "express";
 import { supabase } from "../config/supabase.js";
-import { computeRefundPct, computeSessionSplit, reverseServiceFee, wholeHoursBetween, MAX_BOOKING_HOURS } from "../services/pricing.service.js";
+import { computeFeeInclusiveRefund, computeRefundPct, computeSessionSplit, wholeHoursBetween, MAX_BOOKING_HOURS } from "../services/pricing.service.js";
 import { getPlatformSettings, type PlatformSettings } from "../services/settings.service.js";
 import { initiateStkPush } from "../services/stk.service.js";
 import { sendTemplatedEmail } from "../services/email.service.js";
@@ -25,15 +25,8 @@ function hoursToKickoff(session: { start_at: string }): number {
   return (new Date(session.start_at).getTime() - Date.now()) / (1000 * 60 * 60);
 }
 
-// Strips the never-refunded service fee back out of a paid_amount (which
-// has no fee column of its own), then scales the remaining venue-value
-// portion by the same tiered policy individual bookings use.
 function computeParticipantRefund(session: { start_at: string; created_at: string }, paidAmount: number, settings: PlatformSettings): number {
-  if (paidAmount <= 0) return 0;
-  const fee = reverseServiceFee(paidAmount, settings.service_fee_tiers);
-  const venuePortion = +(paidAmount - fee).toFixed(2);
-  const pct = computeRefundPct(isWalkIn(session), hoursToKickoff(session), settings);
-  return +(venuePortion * (pct / 100)).toFixed(2);
+  return computeFeeInclusiveRefund(paidAmount, isWalkIn(session), hoursToKickoff(session), settings);
 }
 
 function shapeParticipant(row: any) {

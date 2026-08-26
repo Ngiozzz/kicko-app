@@ -272,6 +272,7 @@ function UserDetailDrawer({ user, onClose }: { user: AdminUser | null; onClose: 
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={styles.activityRowTitle} numberOfLines={1}>
                     {b.venue?.name ?? 'Unknown venue'} {b.booking_type === 'session' && <Text style={styles.activityRowTag}>· Session</Text>}
+                    {b.booking_type === 'split' && <Text style={styles.activityRowTag}>· Split</Text>}
                   </Text>
                   <Text style={styles.activityRowMeta}>
                     {new Date(b.start_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })} · KES {b.total_amount.toLocaleString()}

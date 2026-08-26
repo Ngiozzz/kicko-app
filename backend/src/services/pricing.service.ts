@@ -49,6 +49,20 @@ export function reverseServiceFee(paidAmount: number, tiers: ServiceFeeTiers): n
   return 0;
 }
 
+// Refund due on a single fee-inclusive payment (a session participant's or
+// split-booking participant's own share, which has no fee column of its
+// own) — strips the never-refunded service fee back out first, then scales
+// the remaining venue-value portion by the same tiered cancellation policy
+// individual bookings use. Shared by match_sessions and split bookings so
+// both "many people paid into one shared cost" flows refund identically.
+export function computeFeeInclusiveRefund(paidAmount: number, isWalkIn: boolean, hoursToKickoff: number, settings: RefundPolicy & { service_fee_tiers: ServiceFeeTiers }): number {
+  if (paidAmount <= 0) return 0;
+  const fee = reverseServiceFee(paidAmount, settings.service_fee_tiers);
+  const venuePortion = +(paidAmount - fee).toFixed(2);
+  const pct = computeRefundPct(isWalkIn, hoursToKickoff, settings);
+  return +(venuePortion * (pct / 100)).toFixed(2);
+}
+
 // The live per-person share for a match session subtotal split `headcount`
 // ways, and the total that must be collected to fully fund it at that
 // headcount. Never stored — recomputed every time, because the service fee

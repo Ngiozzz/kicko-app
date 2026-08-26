@@ -7,7 +7,8 @@ export type NotificationType =
   | "payout_paid"
   | "payout_failed"
   | "venue_status_changed"
-  | "new_review";
+  | "new_review"
+  | "split_booking_invite";
 
 /**
  * Inserts one notification row. Called directly from whatever controller

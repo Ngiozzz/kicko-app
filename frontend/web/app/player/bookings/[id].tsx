@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, fonts, radius } from '@kicko/shared';
-import { bookingsApi, Booking } from '../../../src/lib/bookingsApi';
+import { bookingsApi, paymentsApi, Booking, BookingParticipant, Payment } from '../../../src/lib/bookingsApi';
 import { SportIcon, Sport } from '../../../src/components/SportIcon';
 import { useBreadcrumb } from '../../../src/lib/breadcrumbContext';
 
@@ -27,14 +27,24 @@ export default function BookingDetail() {
   const router = useRouter();
 
   const [booking, setBooking] = useState<Booking | null>(null);
+  const [participants, setParticipants] = useState<BookingParticipant[]>([]);
+  const [myParticipant, setMyParticipant] = useState<BookingParticipant | null>(null);
+  const [isOrganizer, setIsOrganizer] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [responding, setResponding] = useState(false);
+  const [sharePhone, setSharePhone] = useState('');
+  const [payingShare, setPayingShare] = useState(false);
+  const [pendingSharePayment, setPendingSharePayment] = useState<Payment | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const { booking } = await bookingsApi.get(id);
-      setBooking(booking);
+      const res = await bookingsApi.get(id);
+      setBooking(res.booking);
+      setParticipants(res.participants ?? []);
+      setMyParticipant(res.my_participant ?? null);
+      setIsOrganizer(res.is_organizer ?? false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load this booking.');
     }
@@ -57,6 +67,54 @@ export default function BookingDetail() {
       setError(err instanceof Error ? err.message : 'Could not cancel this booking.');
     } finally {
       setCancelling(false);
+    }
+  }
+
+  async function handleRespond(accept: boolean) {
+    if (!booking) return;
+    setResponding(true);
+    setError(null);
+    try {
+      const { booking: updated } = await bookingsApi.respond(booking.id, accept);
+      setBooking(updated);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not respond to this invite.');
+    } finally {
+      setResponding(false);
+    }
+  }
+
+  async function handlePayShare() {
+    if (!booking || !sharePhone.trim()) {
+      setError('Enter the phone number to receive the M-Pesa prompt on.');
+      return;
+    }
+    setPayingShare(true);
+    setError(null);
+    try {
+      const { payment } = await bookingsApi.paySplitShare(booking.id, sharePhone.trim());
+      setPendingSharePayment(payment);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not start payment.');
+    } finally {
+      setPayingShare(false);
+    }
+  }
+
+  async function handleSimulateConfirmShare() {
+    if (!pendingSharePayment) return;
+    setPayingShare(true);
+    setError(null);
+    try {
+      const { booking: updated } = await paymentsApi.confirmSplitShare(pendingSharePayment.id);
+      setPendingSharePayment(null);
+      setBooking(updated);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not confirm payment.');
+    } finally {
+      setPayingShare(false);
     }
   }
 
@@ -87,7 +145,10 @@ export default function BookingDetail() {
   }
 
   const badge = statusBadge(booking);
-  const canCancel = booking.status === 'pending_payment' || booking.status === 'confirmed';
+  const isSplit = booking.booking_type === 'split';
+  const canCancel = (booking.status === 'pending_payment' || booking.status === 'confirmed') && (!isSplit || isOrganizer);
+  const iCanRespond = isSplit && myParticipant?.status === 'invited';
+  const iCanPayShare = isSplit && booking.status === 'pending_payment' && myParticipant?.status === 'accepted' && !myParticipant.paid;
 
   return (
     <View style={styles.layout}>
@@ -133,12 +194,66 @@ export default function BookingDetail() {
             <Text style={styles.breakdownValue}>KES {booking.service_fee.toLocaleString()}</Text>
           </View>
           <View style={[styles.breakdownRow, styles.breakdownTotal]}>
-            <Text style={styles.breakdownTotalLabel}>Total paid</Text>
+            <Text style={styles.breakdownTotalLabel}>{isSplit ? `Total (split ${participants.length} ways)` : 'Total paid'}</Text>
             <Text style={styles.breakdownTotalValue}>KES {booking.total_amount.toLocaleString()}</Text>
           </View>
         </View>
 
+        {isSplit && (
+          <View style={styles.participants}>
+            <Text style={styles.participantsTitle}>{participants.length === 2 ? 'Singles' : 'Doubles'} — who's playing</Text>
+            {participants.map((p) => (
+              <View key={p.id} style={styles.participantRow}>
+                <Text style={styles.participantName}>
+                  {p.user.name} {p.is_organizer && <Text style={styles.organizerTag}>Organizer</Text>}
+                </Text>
+                <Text style={styles.participantStatus}>
+                  {p.status === 'invited' ? 'Invited' : p.status === 'declined' ? 'Declined' : p.paid ? 'Paid' : 'Accepted — awaiting payment'}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
         {error && <Text style={styles.error}>{error}</Text>}
+
+        {iCanRespond && (
+          <View style={styles.inviteRow}>
+            <Pressable disabled={responding} onPress={() => handleRespond(true)} style={[styles.btn, styles.btnInline]}>
+              <Text style={styles.btnText}>Accept</Text>
+            </Pressable>
+            <Pressable disabled={responding} onPress={() => handleRespond(false)} style={[styles.btn, styles.btnOutline, styles.btnInline]}>
+              <Text style={styles.btnOutlineText}>Decline</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {iCanPayShare &&
+          (!pendingSharePayment ? (
+            <>
+              <Text style={styles.fieldLabel}>Your share: KES {myParticipant?.share_amount.toLocaleString()}</Text>
+              <TextInput
+                value={sharePhone}
+                onChangeText={setSharePhone}
+                placeholder="+254 7XX XXX XXX"
+                placeholderTextColor={colors.textSoft}
+                style={styles.phoneInput}
+              />
+              <Pressable disabled={payingShare} onPress={handlePayShare} style={[styles.btn, payingShare && styles.btnDisabled]}>
+                <Text style={styles.btnText}>{payingShare ? 'Starting…' : 'Pay my share with M-Pesa'}</Text>
+              </Pressable>
+            </>
+          ) : (
+            <View style={styles.stkPanel}>
+              <Text style={styles.stkBody}>
+                Check <Text style={styles.stkStrong}>{pendingSharePayment.phone_number}</Text> and enter your M-Pesa PIN to pay{' '}
+                <Text style={styles.stkStrong}>KES {pendingSharePayment.amount.toLocaleString()}</Text>.
+              </Text>
+              <Pressable onPress={handleSimulateConfirmShare} disabled={payingShare}>
+                <Text style={styles.confirmLink}>{payingShare ? 'Confirming…' : 'Simulate M-Pesa confirmation →'}</Text>
+              </Pressable>
+            </View>
+          ))}
 
         {canCancel && (
           <Pressable disabled={cancelling} onPress={handleCancel} style={[styles.btn, styles.btnDanger, cancelling && styles.btnDisabled]}>
@@ -191,8 +306,39 @@ const styles = StyleSheet.create({
   breakdownTotalLabel: { fontFamily: fonts.sansBold, fontSize: 15, color: colors.text },
   breakdownTotalValue: { fontFamily: fonts.sansBold, fontSize: 15, color: colors.text },
 
-  btn: { marginTop: 20, borderRadius: radius.pill, paddingVertical: 13, alignItems: 'center' },
+  btn: { marginTop: 20, backgroundColor: colors.accent, borderRadius: radius.pill, paddingVertical: 13, alignItems: 'center' },
+  btnInline: { flex: 1, marginTop: 0 },
   btnDisabled: { opacity: 0.4 },
   btnDanger: { borderWidth: 1, borderColor: colors.danger, backgroundColor: 'transparent' },
   btnDangerText: { fontFamily: fonts.sansBold, fontSize: 13.5, color: colors.danger },
+  btnText: { fontFamily: fonts.sansBold, fontSize: 13.5, color: colors.accentText },
+  btnOutline: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: colors.border },
+  btnOutlineText: { fontFamily: fonts.sansBold, fontSize: 13.5, color: colors.text },
+
+  fieldLabel: { fontFamily: fonts.sansBold, fontSize: 11.5, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSoft, marginTop: 20, marginBottom: 8 },
+  phoneInput: {
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: colors.text,
+  },
+
+  inviteRow: { flexDirection: 'row', gap: 10, marginTop: 20 },
+
+  stkPanel: { marginTop: 20, alignItems: 'center' },
+  stkBody: { fontFamily: fonts.sans, fontSize: 13, color: colors.textSoft, textAlign: 'center', lineHeight: 19, marginBottom: 12 },
+  stkStrong: { fontFamily: fonts.sansBold, color: colors.text },
+  confirmLink: { fontFamily: fonts.sansSemiBold, fontSize: 12.5, color: colors.accent, textDecorationLine: 'underline' },
+
+  participants: { marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: colors.border },
+  participantsTitle: { fontFamily: fonts.sansSemiBold, fontSize: 12.5, color: colors.textSoft, marginBottom: 10 },
+  participantRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
+  participantName: { fontFamily: fonts.sansMedium, fontSize: 13.5, color: colors.text },
+  organizerTag: { fontFamily: fonts.sans, fontSize: 11, color: colors.textSoft },
+  participantStatus: { fontFamily: fonts.sans, fontSize: 12.5, color: colors.textSoft },
 });

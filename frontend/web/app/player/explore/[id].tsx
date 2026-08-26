@@ -3,11 +3,12 @@ import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, Text
 import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, fonts, radius } from '@kicko/shared';
 import { exploreApi, Venue, BookedSlot } from '../../../src/lib/venuesApi';
-import { bookingsApi, paymentsApi, Booking, Payment } from '../../../src/lib/bookingsApi';
+import { bookingsApi, paymentsApi, Booking, Payment, SplitFormat } from '../../../src/lib/bookingsApi';
 import { sessionsApi } from '../../../src/lib/sessionsApi';
-import { settingsApi, computeServiceFee, ServiceFeeTier } from '../../../src/lib/settingsApi';
+import { settingsApi, computeServiceFee, computeSessionSplit, ServiceFeeTier } from '../../../src/lib/settingsApi';
 import { reviewsApi } from '../../../src/lib/reviewsApi';
 import { useVenueReviews } from '../../../src/lib/useVenueReviews';
+import { getSportContent } from '../../../src/content/sportContent';
 import { SportIcon, Sport } from '../../../src/components/SportIcon';
 import { StarRating, StarRatingInput } from '../../../src/components/StarRating';
 import { ReviewCard, ReviewListPanel, LoadMoreButton } from '../../../src/components/ReviewList';
@@ -46,6 +47,8 @@ export default function ExploreVenueDetail() {
   const [selectedHours, setSelectedHours] = useState<number[]>([]);
   const [phone, setPhone] = useState('');
   const [mode, setMode] = useState<BookingMode>('solo');
+  const [splitFormat, setSplitFormat] = useState<SplitFormat>('singles');
+  const [partnerPhones, setPartnerPhones] = useState<string[]>(['']);
   const [stage, setStage] = useState<Stage>('form');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -172,6 +175,32 @@ export default function ExploreVenueDetail() {
     }
   }
 
+  async function submitSplitBooking() {
+    if (!venue || !selectionRange) return;
+    const format = getSportContent(venue.sport).pairFormats.find((f) => f.key === splitFormat);
+    if (!format) return;
+    if (partnerPhones.some((p) => !p.trim())) {
+      setFormError(`Enter phone numbers for all ${format.totalPlayers - 1} other player${format.totalPlayers - 1 === 1 ? '' : 's'}.`);
+      return;
+    }
+    setFormError(null);
+    setSubmitting(true);
+    try {
+      const { booking } = await bookingsApi.createSplit({
+        venue_id: venue.id,
+        start_at: selectionRange.start.toISOString(),
+        end_at: selectionRange.end.toISOString(),
+        format: splitFormat,
+        partner_phones: partnerPhones.map((p) => p.trim()),
+      });
+      router.push(`/player/bookings/${booking.id}`);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Could not start this booking.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function simulateConfirm() {
     if (!payment) return;
     setSubmitting(true);
@@ -201,6 +230,10 @@ export default function ExploreVenueDetail() {
       </View>
     );
   }
+
+  const sportContent = getSportContent(venue.sport);
+  const pairFormat = sportContent.pairFormats.find((f) => f.key === splitFormat);
+  const splitPreview = computeSessionSplit(subtotal, pairFormat?.totalPlayers ?? 2, serviceFeeTiers);
 
   return (
     <View style={styles.layout}>
@@ -385,6 +418,62 @@ export default function ExploreVenueDetail() {
                   style={[styles.btn, (!selectionRange || submitting) && styles.btnDisabled]}
                 >
                   <Text style={styles.btnText}>{submitting ? 'Starting…' : 'Continue to pay with M-Pesa'}</Text>
+                </Pressable>
+              </>
+            ) : sportContent.bookingMode === 'pair' ? (
+              <>
+                <Text style={styles.fieldLabel}>Format</Text>
+                <View style={styles.modeToggle}>
+                  {sportContent.pairFormats.map((f) => (
+                    <Pressable
+                      key={f.key}
+                      onPress={() => {
+                        setSplitFormat(f.key);
+                        setPartnerPhones(Array(f.totalPlayers - 1).fill(''));
+                      }}
+                      style={[styles.modeOption, splitFormat === f.key && styles.modeOptionActive]}
+                    >
+                      <Text style={[styles.modeOptionText, splitFormat === f.key && styles.modeOptionTextActive]}>{f.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                {partnerPhones.map((p, i) => (
+                  <View key={i}>
+                    <Text style={styles.fieldLabel}>Player {i + 2} phone</Text>
+                    <TextInput
+                      value={p}
+                      onChangeText={(v) => setPartnerPhones((prev) => prev.map((existing, idx) => (idx === i ? v : existing)))}
+                      placeholder="+254 7XX XXX XXX"
+                      placeholderTextColor={colors.textSoft}
+                      style={styles.phoneInput}
+                    />
+                  </View>
+                ))}
+
+                <View style={styles.breakdown}>
+                  <View style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>Each player pays</Text>
+                    <Text style={styles.breakdownValue}>KES {splitPreview.perPersonShare.toLocaleString()}</Text>
+                  </View>
+                  <View style={[styles.breakdownRow, styles.breakdownTotal]}>
+                    <Text style={styles.breakdownTotalLabel}>Total ({pairFormat?.totalPlayers} players)</Text>
+                    <Text style={styles.breakdownTotalValue}>KES {splitPreview.totalTarget.toLocaleString()}</Text>
+                  </View>
+                </View>
+
+                <Text style={styles.splitNote}>
+                  Every player named above needs a Kicko account already — they'll get a notification to accept and pay their own share.
+                </Text>
+
+                {formError && <Text style={styles.error}>{formError}</Text>}
+
+                <Pressable
+                  disabled={!selectionRange || submitting}
+                  onPress={submitSplitBooking}
+                  style={[styles.btn, (!selectionRange || submitting) && styles.btnDisabled]}
+                >
+                  <Text style={styles.btnText}>{submitting ? 'Starting…' : 'Start booking — everyone pays their share'}</Text>
                 </Pressable>
               </>
             ) : (

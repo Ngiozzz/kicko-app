@@ -11,13 +11,23 @@ function formatWhen(startAt: string): string {
   return new Date(startAt).toLocaleString("en-KE", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 }
 
-/** Every accepted participant on a session booking, or just the solo player otherwise. */
-async function recipientsFor(booking: { booking_type: string; session_id: string | null; player_id: string }): Promise<{ name: string; email: string }[]> {
+/** Every accepted participant on a session or split booking, or just the solo player otherwise. */
+async function recipientsFor(booking: { id: string; booking_type: string; session_id: string | null; player_id: string }): Promise<{ name: string; email: string }[]> {
   if (booking.booking_type === "session" && booking.session_id) {
     const { data } = await supabase
       .from("session_participants")
       .select("status, user:users!session_participants_user_id_fkey(name, email)")
       .eq("session_id", booking.session_id);
+    return (data ?? [])
+      .filter((p: any) => p.status === "accepted" && p.user?.email)
+      .map((p: any) => ({ name: p.user.name, email: p.user.email }));
+  }
+
+  if (booking.booking_type === "split") {
+    const { data } = await supabase
+      .from("booking_participants")
+      .select("status, user:users!booking_participants_user_id_fkey(name, email)")
+      .eq("booking_id", booking.id);
     return (data ?? [])
       .filter((p: any) => p.status === "accepted" && p.user?.email)
       .map((p: any) => ({ name: p.user.name, email: p.user.email }));

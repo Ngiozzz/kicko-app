@@ -14,6 +14,7 @@ import reviewsRoutes from "./routes/reviews.routes.js";
 import managersRoutes from "./routes/managers.routes.js";
 import notificationsRoutes from "./routes/notifications.routes.js";
 import { startMatchSessionExpiryJob } from "./jobs/expireMatchSessions.js";
+import { startSplitBookingExpiryJob } from "./jobs/expireSplitBookings.js";
 import { startResolvePayoutsJob } from "./jobs/resolvePayouts.js";
 import { startGameReminderJob } from "./jobs/sendGameReminders.js";
 import { startReviewRequestJob } from "./jobs/sendReviewRequests.js";
@@ -72,6 +73,7 @@ const PORT = process.env.PORT || 4001;
 app.listen(PORT, () => {
   console.log(`🟢 Kicko backend running on http://localhost:${PORT}`);
   startMatchSessionExpiryJob();
+  startSplitBookingExpiryJob();
   startResolvePayoutsJob();
   startGameReminderJob();
   startReviewRequestJob();

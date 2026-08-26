@@ -25,7 +25,7 @@ export type AdminUserBooking = {
   total_amount: number;
   status: 'pending_payment' | 'confirmed' | 'completed' | 'cancelled';
   payment_status: 'unpaid' | 'paid' | 'refunded' | 'partially_refunded';
-  booking_type: 'individual' | 'session';
+  booking_type: 'individual' | 'session' | 'split';
 };
 
 export type AdminUserActivity = {

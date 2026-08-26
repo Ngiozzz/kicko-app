@@ -27,6 +27,18 @@ export function computeServiceFee(subtotal: number, tiers: ServiceFeeTier[]): nu
   return tiers.find((tier) => tier.max === null || subtotal <= tier.max)!.fee;
 }
 
+// Mirrors backend/src/services/pricing.service.ts#computeSessionSplit — the
+// live per-person share for a subtotal split `headcount` ways, re-applying
+// the service fee to each share rather than dividing one lump fee out.
+// Preview-only; the server recomputes authoritatively on submit.
+export function computeSessionSplit(subtotal: number, headcount: number, tiers: ServiceFeeTier[]): { perPersonShare: number; totalTarget: number } {
+  if (headcount <= 0) return { perPersonShare: 0, totalTarget: 0 };
+  const perPersonBase = +(subtotal / headcount).toFixed(2);
+  const perPersonFee = computeServiceFee(perPersonBase, tiers);
+  const perPersonShare = +(perPersonBase + perPersonFee).toFixed(2);
+  return { perPersonShare, totalTarget: +(perPersonShare * headcount).toFixed(2) };
+}
+
 // Mirrors backend/src/services/pricing.service.ts#computeRefundPct's
 // tier-lookup shape (excluding the walk-in branch, which callers show
 // separately) — preview-only, so admins see the effect of an edit before

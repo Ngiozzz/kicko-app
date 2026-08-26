@@ -34,7 +34,7 @@ type Row = {
   location: string;
   startAt: string;
   amount: number;
-  kind: 'solo' | 'session';
+  kind: 'solo' | 'session' | 'split';
   detailNote?: string;
   badge: { label: string; tone: 'good' | 'warn' | 'bad' };
   filterBucket: 'upcoming' | 'completed' | 'cancelled';
@@ -131,8 +131,17 @@ export default function PlayerBookings() {
         location: b.venue.location,
         startAt: b.start_at,
         amount: b.total_amount,
-        kind: b.booking_type === 'session' ? 'session' : 'solo',
-        detailNote: b.booking_type === 'session' ? (b.player_id === userId ? 'Organized by you' : undefined) : undefined,
+        kind: b.booking_type === 'session' ? 'session' : b.booking_type === 'split' ? 'split' : 'solo',
+        detailNote:
+          b.booking_type === 'session'
+            ? b.player_id === userId
+              ? 'Organized by you'
+              : undefined
+            : b.booking_type === 'split'
+              ? b.player_id === userId
+                ? 'Organized by you'
+                : 'Invited to split this booking'
+              : undefined,
         badge: bookingBadge(b),
         filterBucket: bookingBucket(b),
         bookingId: b.booking_type === 'individual' && (b.status === 'pending_payment' || b.status === 'confirmed') ? b.id : undefined,
@@ -247,8 +256,8 @@ export default function PlayerBookings() {
             <View style={{ flex: 1, minWidth: 0 }}>
               <View style={styles.rowTitleLine}>
                 <Text style={styles.rowTitle}>{r.venueName}</Text>
-                <Text style={[styles.kindTag, r.kind === 'session' ? styles.kindTagSession : styles.kindTagSolo]}>
-                  {r.kind === 'session' ? 'Match session' : 'Solo'}
+                <Text style={[styles.kindTag, r.kind === 'session' || r.kind === 'split' ? styles.kindTagSession : styles.kindTagSolo]}>
+                  {r.kind === 'session' ? 'Match session' : r.kind === 'split' ? 'Split booking' : 'Solo'}
                 </Text>
               </View>
               <Text style={styles.rowMeta}>
