@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { Link, router, useLocalSearchParams } from 'expo-router';
 import { colors, fonts } from '@kicko/shared';
-import { Button, Field } from '../src/components/ui';
+import { Button, Checkbox, Field } from '../src/components/ui';
 import { AuthLayout } from '../src/components/AuthLayout';
 import { GoogleSignInSection } from '../src/components/GoogleSignInButton';
 import { apiFetch, supabase, supabaseConfigured } from '@kicko/shared';
@@ -20,7 +20,7 @@ function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-type FieldErrors = { name?: string; email?: string; password?: string };
+type FieldErrors = { name?: string; email?: string; password?: string; terms?: string };
 
 // Web sign-up covers players and owners (/sign-up?role=...). Managers
 // and admins still never self-register — an owner adds managers
@@ -36,6 +36,7 @@ export default function SignUp() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -61,9 +62,10 @@ export default function SignUp() {
       name: validateName(name),
       email: validateEmail(email),
       password: validatePassword(password),
+      terms: agreedToTerms ? undefined : 'You must agree to the Terms of Service and Privacy Policy to continue.',
     };
     setFieldErrors(errors);
-    if (errors.name || errors.email || errors.password) return;
+    if (errors.name || errors.email || errors.password || errors.terms) return;
 
     if (!supabaseConfigured) {
       setFormError('Supabase isn’t connected yet — add your project URL and anon key to .env to create an account for real.');
@@ -153,11 +155,23 @@ export default function SignUp() {
             error={fieldErrors.password}
           />
 
+          <Checkbox checked={agreedToTerms} onToggle={() => setAgreedToTerms((v) => !v)} error={fieldErrors.terms}>
+            I agree to the{' '}
+            <Link href="/terms" style={styles.inlineLink}>
+              Terms of Service
+            </Link>{' '}
+            and{' '}
+            <Link href="/privacy" style={styles.inlineLink}>
+              Privacy Policy
+            </Link>
+            .
+          </Checkbox>
+
           {formError ? <Text style={styles.formError}>{formError}</Text> : null}
 
           <Button title={loading ? 'Creating account…' : 'Create account'} onPress={handleSignUp} disabled={loading} />
 
-          <GoogleSignInSection role={role} next={next} />
+          <GoogleSignInSection role={role} next={next} showTermsNote />
         </>
       )}
 
@@ -183,4 +197,5 @@ const styles = StyleSheet.create({
   },
   footNote: { fontFamily: fonts.sans, fontSize: 13, color: colors.textSoft, marginTop: 24 },
   footLink: { fontFamily: fonts.sansBold, color: colors.accent },
+  inlineLink: { fontFamily: fonts.sansSemiBold, color: colors.accent },
 });

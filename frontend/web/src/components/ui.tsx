@@ -51,6 +51,30 @@ export function Card({ children }: { children: ReactNode }) {
   return <View style={styles.card}>{children}</View>;
 }
 
+export function Checkbox({
+  checked,
+  onToggle,
+  children,
+  error,
+}: {
+  checked: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+  error?: string;
+}) {
+  return (
+    <View style={styles.field}>
+      <Pressable onPress={onToggle} style={styles.checkboxRow}>
+        <View style={[styles.checkboxBox, checked && styles.checkboxBoxChecked]}>
+          {checked && <Text style={styles.checkboxMark}>✓</Text>}
+        </View>
+        <Text style={styles.checkboxLabel}>{children}</Text>
+      </Pressable>
+      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
@@ -86,6 +110,21 @@ const styles = StyleSheet.create({
     color: colors.danger,
     marginTop: 6,
   },
+  checkboxRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  checkboxBox: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  checkboxBoxChecked: { backgroundColor: colors.accent, borderColor: colors.accent },
+  checkboxMark: { fontSize: 13, lineHeight: 13, color: colors.accentText, fontFamily: fonts.sansBold },
+  checkboxLabel: { flex: 1, fontFamily: fonts.sans, fontSize: 13, color: colors.textSoft, lineHeight: 19 },
   btn: {
     backgroundColor: colors.accent,
     borderRadius: radius.pill,

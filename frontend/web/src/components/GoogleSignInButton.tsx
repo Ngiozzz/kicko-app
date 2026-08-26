@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Link } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { colors, fonts, radius, supabase } from '@kicko/shared';
 import { stashOAuthIntent, OAuthRole } from '../lib/oauthIntent';
@@ -33,7 +34,10 @@ function GoogleMark({ size = 18 }: { size?: number }) {
 // sign-in.tsx). `role` decides what a brand-new signup becomes (see
 // /auth/callback + the backend's /api/account/me/role claim endpoint);
 // for a returning user it's ignored in favor of their real account role.
-export function GoogleSignInSection({ role, next }: { role: OAuthRole; next?: string }) {
+// showTermsNote is only passed from sign-up — a returning user hitting
+// "Continue with Google" on sign-in already agreed the first time, so
+// re-showing the notice there would just be noise.
+export function GoogleSignInSection({ role, next, showTermsNote }: { role: OAuthRole; next?: string; showTermsNote?: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -70,6 +74,20 @@ export function GoogleSignInSection({ role, next }: { role: OAuthRole; next?: st
         <Text style={styles.btnText}>{loading ? 'Connecting…' : 'Continue with Google'}</Text>
       </Pressable>
 
+      {showTermsNote && (
+        <Text style={styles.termsNote}>
+          By continuing with Google, you agree to Kicko's{' '}
+          <Link href="/terms" style={styles.termsLink}>
+            Terms of Service
+          </Link>{' '}
+          and{' '}
+          <Link href="/privacy" style={styles.termsLink}>
+            Privacy Policy
+          </Link>
+          .
+        </Text>
+      )}
+
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
   );
@@ -100,4 +118,13 @@ const styles = StyleSheet.create({
     marginTop: 10,
     lineHeight: 18,
   },
+  termsNote: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    color: colors.textSoft,
+    marginTop: 12,
+    lineHeight: 17,
+    textAlign: 'center',
+  },
+  termsLink: { fontFamily: fonts.sansSemiBold, color: colors.accent },
 });
