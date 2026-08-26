@@ -16,6 +16,10 @@ export type MatchSession = {
   phase: SessionPhase;
   phase_deadline: string;
   resplit_active: boolean;
+  // Private (default) means invite-link/phone only, like every session
+  // before this existed. Open means publicly listed under "Open Sessions"
+  // and joinable by any logged-in player with no invite at all.
+  is_open: boolean;
   cancellation_reason: string | null;
   home_invite_token: string;
   away_invite_token: string;
@@ -48,7 +52,8 @@ type RosterSide = SessionParticipant[] | { redacted: true; count: number };
 
 export type SessionDetail = {
   session: MatchSession;
-  caller_side: SessionSide;
+  // Null only when browsing an open session you haven't joined yet.
+  caller_side: SessionSide | null;
   is_organizer: boolean;
   is_captain: boolean;
   my_participant: SessionParticipant | null;
@@ -59,7 +64,14 @@ export type SessionDetail = {
   per_person_share: number;
   total_target: number;
   amount_paid_so_far: number;
+  can_join_open: boolean;
+  home_full: boolean;
+  away_full: boolean;
 };
+
+// The lightweight shape listOpen() returns — a headcount per side, not the
+// full (possibly still-redacted) roster getSession() gives once you're in.
+export type OpenSessionSummary = { session: MatchSession; home_count: number; away_count: number };
 
 export type JoinInfo = {
   session_id: string;
@@ -82,8 +94,11 @@ export const sessionsApi = {
   awaitingDecision: () => apiFetch<{ sessions: MatchSession[] }>('/api/sessions/awaiting-decision/mine'),
   awaitingCompletion: () => apiFetch<{ sessions: MatchSession[] }>('/api/sessions/awaiting-completion/mine'),
   get: (id: string) => apiFetch<SessionDetail>(`/api/sessions/${id}`),
-  create: (input: { venue_id: string; start_at: string; end_at: string }) =>
+  open: () => apiFetch<{ sessions: OpenSessionSummary[] }>('/api/sessions/open'),
+  create: (input: { venue_id: string; start_at: string; end_at: string; is_open?: boolean }) =>
     apiFetch<{ session: MatchSession }>('/api/sessions', { method: 'POST', body: JSON.stringify(input) }),
+  joinOpen: (id: string, side: SessionSide) =>
+    apiFetch<{ session: MatchSession; participant: SessionParticipant }>(`/api/sessions/${id}/join-open`, { method: 'POST', body: JSON.stringify({ side }) }),
   invite: (id: string, input: { side: SessionSide; phone: string }) =>
     apiFetch<{ participant: SessionParticipant }>(`/api/sessions/${id}/invite`, { method: 'POST', body: JSON.stringify(input) }),
   respond: (id: string, accept: boolean) =>

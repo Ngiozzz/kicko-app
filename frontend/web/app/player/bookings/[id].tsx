@@ -36,6 +36,8 @@ export default function BookingDetail() {
   const [sharePhone, setSharePhone] = useState('');
   const [payingShare, setPayingShare] = useState(false);
   const [pendingSharePayment, setPendingSharePayment] = useState<Payment | null>(null);
+  const [canClaimOpenSlot, setCanClaimOpenSlot] = useState(false);
+  const [claiming, setClaiming] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -45,6 +47,7 @@ export default function BookingDetail() {
       setParticipants(res.participants ?? []);
       setMyParticipant(res.my_participant ?? null);
       setIsOrganizer(res.is_organizer ?? false);
+      setCanClaimOpenSlot(res.can_claim_open_slot ?? false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load this booking.');
     }
@@ -99,6 +102,20 @@ export default function BookingDetail() {
       setError(err instanceof Error ? err.message : 'Could not start payment.');
     } finally {
       setPayingShare(false);
+    }
+  }
+
+  async function handleClaimOpenSlot() {
+    if (!booking) return;
+    setClaiming(true);
+    setError(null);
+    try {
+      await bookingsApi.claimOpenSlot(booking.id);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not claim this spot.');
+    } finally {
+      setClaiming(false);
     }
   }
 
@@ -201,14 +218,25 @@ export default function BookingDetail() {
 
         {isSplit && (
           <View style={styles.participants}>
-            <Text style={styles.participantsTitle}>{participants.length === 2 ? 'Singles' : 'Doubles'} — who's playing</Text>
+            <Text style={styles.participantsTitle}>
+              {participants.length === 2 ? 'Singles' : 'Doubles'} — who's playing{booking.is_open ? ' (open to the public)' : ''}
+            </Text>
             {participants.map((p) => (
               <View key={p.id} style={styles.participantRow}>
                 <Text style={styles.participantName}>
-                  {p.user.name} {p.is_organizer && <Text style={styles.organizerTag}>Organizer</Text>}
+                  {p.status === 'open' ? 'Open spot — anyone can claim it' : p.user?.name}{' '}
+                  {p.is_organizer && <Text style={styles.organizerTag}>Organizer</Text>}
                 </Text>
                 <Text style={styles.participantStatus}>
-                  {p.status === 'invited' ? 'Invited' : p.status === 'declined' ? 'Declined' : p.paid ? 'Paid' : 'Accepted — awaiting payment'}
+                  {p.status === 'open'
+                    ? 'Waiting for a player'
+                    : p.status === 'invited'
+                      ? 'Invited'
+                      : p.status === 'declined'
+                        ? 'Declined'
+                        : p.paid
+                          ? 'Paid'
+                          : 'Accepted — awaiting payment'}
                 </Text>
               </View>
             ))}
@@ -216,6 +244,12 @@ export default function BookingDetail() {
         )}
 
         {error && <Text style={styles.error}>{error}</Text>}
+
+        {canClaimOpenSlot && (
+          <Pressable disabled={claiming} onPress={handleClaimOpenSlot} style={[styles.btn, claiming && styles.btnDisabled]}>
+            <Text style={styles.btnText}>{claiming ? 'Claiming…' : 'Claim this spot'}</Text>
+          </Pressable>
+        )}
 
         {iCanRespond && (
           <View style={styles.inviteRow}>

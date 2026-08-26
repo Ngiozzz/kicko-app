@@ -4,7 +4,7 @@ import { Link, router, usePathname } from 'expo-router';
 import { colors, fonts, radius } from '@kicko/shared';
 import { LogoMark } from '../Logo';
 import { supabase } from '@kicko/shared';
-import { BookingsIcon, HomeIcon, ManagersIcon, SearchIcon, SettingsIcon, SidebarToggleIcon } from '../owner/icons';
+import { BookingsIcon, HomeIcon, ManagersIcon, OpenSessionsIcon, SearchIcon, SettingsIcon, SidebarToggleIcon } from '../owner/icons';
 import { BreadcrumbProvider, useBreadcrumbOverride } from '../../lib/breadcrumbContext';
 import { NotifBell } from '../NotifBell';
 import { useIsMobile } from '../../lib/useIsMobile';
@@ -20,6 +20,7 @@ const OVERVIEW_ITEMS: NavItem[] = [
 ];
 const ACTIVITY_ITEMS: NavItem[] = [
   { label: 'Bookings', href: '/player/bookings', icon: BookingsIcon },
+  { label: 'Open Sessions', href: '/player/sessions', icon: OpenSessionsIcon },
   { label: 'Teams', href: '/player/teams', icon: ManagersIcon },
 ];
 
@@ -29,19 +30,22 @@ const BREADCRUMBS: Record<string, Crumb[]> = {
   '/player': [{ label: 'Home' }],
   '/player/explore': [{ label: 'Home', href: '/player' }, { label: 'Explore' }],
   '/player/bookings': [{ label: 'Home', href: '/player' }, { label: 'Bookings' }],
+  '/player/sessions': [{ label: 'Home', href: '/player' }, { label: 'Open Sessions' }],
   '/player/teams': [{ label: 'Home', href: '/player' }, { label: 'Teams' }],
   '/player/settings': [{ label: 'Home', href: '/player' }, { label: 'Settings' }],
 };
 
-// A match session is just a booking that hasn't been organized alone — no
-// separate nav item, so its detail route breadcrumbs back through Bookings.
+// A match session detail page isn't itself a nav item — its breadcrumb
+// falls back to whichever list would have led you there (Open Sessions if
+// you got there by browsing, Bookings otherwise); either is a reasonable
+// "back" target so this doesn't need to track which one you actually used.
 function breadcrumbFor(pathname: string): Crumb[] {
   if (BREADCRUMBS[pathname]) return BREADCRUMBS[pathname];
   if (pathname.startsWith('/player/explore/')) {
     return [{ label: 'Home', href: '/player' }, { label: 'Explore', href: '/player/explore' }, { label: 'Venue' }];
   }
   if (pathname.startsWith('/player/sessions/')) {
-    return [{ label: 'Home', href: '/player' }, { label: 'Bookings', href: '/player/bookings' }, { label: 'Match session' }];
+    return [{ label: 'Home', href: '/player' }, { label: 'Open Sessions', href: '/player/sessions' }, { label: 'Match session' }];
   }
   if (pathname.startsWith('/player/bookings/')) {
     return [{ label: 'Home', href: '/player' }, { label: 'Bookings', href: '/player/bookings' }, { label: 'Booking' }];
@@ -62,9 +66,9 @@ function CrumbLink({ href, label }: { href: string; label: string }) {
 
 function isActive(pathname: string, href: string) {
   if (href === '/player') return pathname === '/player';
-  // Match session detail pages count as "Bookings" too — there's no
-  // separate nav item for them.
-  if (href === '/player/bookings' && pathname.startsWith('/player/sessions/')) return true;
+  // A session detail page (/player/sessions/:id) naturally highlights
+  // "Open Sessions" via the startsWith('/player/sessions') prefix match
+  // below — no special-casing needed now that it's a real nav item.
   return pathname.startsWith(href);
 }
 

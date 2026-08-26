@@ -10,9 +10,8 @@ export type MobileNavItem = { label: string; href: string; icon: (p: { size?: nu
 export const MOBILE_TAB_BAR_HEIGHT = 60;
 
 // Sidebar replacement below MOBILE_BREAKPOINT (see useIsMobile.ts). Each
-// shell keeps owning its own primary nav-item list and isActive logic
-// (they differ slightly — e.g. PlayerShell treats /player/sessions/* as
-// "Bookings") and just passes them in here.
+// shell keeps owning its own primary nav-item list and isActive logic and
+// just passes them in here.
 export function MobileTabBar({ items, isActive }: { items: MobileNavItem[]; isActive: (href: string) => boolean }) {
   return (
     <View style={styles.bar}>

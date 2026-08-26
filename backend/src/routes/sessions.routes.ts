@@ -12,8 +12,10 @@ import {
   getSessionsAwaitingMyDecision,
   getTopUpOwed,
   inviteParticipant,
+  joinOpenSession,
   joinViaLink,
   listMySessions,
+  listOpenSessions,
   payMyShare,
   payTopUp,
   removeParticipant,
@@ -32,9 +34,11 @@ router.use(requireAuth);
 
 router.post("/", createSession);
 router.get("/mine", listMySessions);
+router.get("/open", listOpenSessions);
 router.get("/awaiting-decision/mine", getSessionsAwaitingMyDecision);
 router.get("/awaiting-completion/mine", getSessionsAwaitingMyCompletion);
 router.get("/:id", getSession);
+router.post("/:id/join-open", sensitiveActionLimiter, joinOpenSession);
 router.post("/:id/claim", claimParticipant);
 router.post("/:id/invite", sensitiveActionLimiter, inviteParticipant);
 router.post("/:id/respond", respondToInvite);

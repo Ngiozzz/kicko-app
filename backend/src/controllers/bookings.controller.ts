@@ -37,14 +37,15 @@ function shapeParticipant(row: any) {
   };
 }
 
-/** A caller can see/act on a split booking if they organized it or are one of its named participants — no blind-roster rule, unlike match_sessions, since everyone in a fixed 2/4-person group already knows who else is in it. */
+/** A caller can see/act on a split booking if they organized it, are one of its named participants, or (like an open session) it's publicly open with a spot still to claim — no blind-roster rule either way, since everyone in a fixed 2/4-person group already knows who else is in it. */
 async function loadAccessibleBooking(bookingId: string, userId: string) {
   const { data: booking, error } = await supabase.from("bookings").select(BOOKING_SELECT).eq("id", bookingId).maybeSingle();
   if (error || !booking) return { booking: null, error };
   if (booking.player_id === userId) return { booking, error: null };
   const { data: participant } = await supabase.from("booking_participants").select("id").eq("booking_id", bookingId).eq("user_id", userId).maybeSingle();
-  if (!participant) return { booking: null, error: null };
-  return { booking, error: null };
+  if (participant) return { booking, error: null };
+  if (booking.booking_type === "split" && booking.is_open && booking.status === "pending_payment") return { booking, error: null };
+  return { booking: null, error: null };
 }
 
 /** Refunds every split-booking participant who's paid something — a single failure is logged, not fatal to the rest. Mirrors sessions.controller.ts's refundAllPaidParticipants. */
@@ -83,9 +84,12 @@ export async function finalizeSplitBookingCancellation(booking: any, reason: str
 
   const { data: participants } = await getBookingParticipants(booking.id);
   for (const p of participants ?? []) {
-    if (p.status === "declined" || p.status === "removed") continue;
+    // An 'open' slot never had anyone in it — nothing to notify. Declined/
+    // removed participants already know; only accepted/invited real people
+    // need telling.
+    if (!p.user || p.status === "declined" || p.status === "removed" || p.status === "open") continue;
     await notify({ userId: p.user.id, type: "booking_cancelled", title: "Booking cancelled", body: `${updated.venue.name} — ${reason}`, link: `/player/bookings/${booking.id}` });
-    if (p.user?.email) await sendTemplatedEmail("booking_cancelled", p.user.email, { venueName: updated.venue.name, refundLine: reason });
+    if (p.user.email) await sendTemplatedEmail("booking_cancelled", p.user.email, { venueName: updated.venue.name, refundLine: reason });
   }
   return updated;
 }
@@ -96,9 +100,14 @@ export async function recomputeSplitBookingFunding(bookingId: string) {
   if (!booking) return { booking: null, funded: false };
   if (booking.status !== "pending_payment") return { booking, funded: booking.status === "confirmed" };
 
-  const { data: participants } = await getBookingParticipants(bookingId);
-  const accepted = (participants ?? []).filter((p) => p.status === "accepted");
-  const allPaid = accepted.length > 0 && accepted.every((p) => p.paid);
+  const rows = (await getBookingParticipants(bookingId)).data ?? [];
+  // Funded means every seat is both filled AND paid — a still-pending
+  // invite or an unclaimed open slot must block this exactly like an
+  // unpaid accepted participant does, otherwise a doubles booking could
+  // confirm one player short just because the other three already paid.
+  const stillFilling = rows.some((p) => p.status === "invited" || p.status === "open");
+  const accepted = rows.filter((p) => p.status === "accepted");
+  const allPaid = !stillFilling && accepted.length > 0 && accepted.every((p) => p.paid);
   if (!allPaid) return { booking, funded: false };
 
   const { data: updated, error } = await supabase
@@ -205,11 +214,16 @@ export async function createBooking(req: Request, res: Response) {
 }
 
 /**
- * Split booking: a fixed, known group (tennis singles = 2 total players,
- * doubles = 4) splits one venue slot's cost. The organizer names exactly
- * who else is playing by phone up front — no open invite link, no
- * strangers, no home/away sides. Every named phone must already belong to
- * a Kicko player account; if any doesn't, nothing is created.
+ * Split booking: a fixed-size, mostly-known group (tennis singles = 2
+ * total players, doubles = 4) splits one venue slot's cost. The organizer
+ * names who else is playing by phone up front — no invite link needed for
+ * a named slot, no strangers, no home/away sides. A slot can also be left
+ * `null` ("open") instead of named, if the organizer doesn't have that
+ * many players yet — any logged-in player can then claim it directly (see
+ * claimOpenBookingSlot), same idea as an open session, just for a fixed-
+ * size group instead of an open-ended squad. Every named phone must
+ * already belong to a Kicko player account; if any doesn't, nothing is
+ * created.
  */
 export async function createSplitBooking(req: Request, res: Response) {
   if (req.user!.role !== "player") return res.status(403).json({ error: "Only players can book venues." });
@@ -219,8 +233,12 @@ export async function createSplitBooking(req: Request, res: Response) {
   if (typeof venue_id !== "string" || typeof start_at !== "string" || typeof end_at !== "string" || !participantCount) {
     return res.status(400).json({ error: "venue_id, start_at, end_at, and a format of 'singles' or 'doubles' are required." });
   }
-  if (!Array.isArray(partner_phones) || partner_phones.length !== participantCount - 1 || partner_phones.some((p) => typeof p !== "string" || !p.trim())) {
-    return res.status(400).json({ error: `${format} needs exactly ${participantCount - 1} other player phone number(s).` });
+  if (
+    !Array.isArray(partner_phones) ||
+    partner_phones.length !== participantCount - 1 ||
+    partner_phones.some((p) => p !== null && (typeof p !== "string" || !p.trim()))
+  ) {
+    return res.status(400).json({ error: `${format} needs exactly ${participantCount - 1} other player slot(s) — each one a phone number or left open.` });
   }
 
   const start = new Date(start_at);
@@ -237,9 +255,12 @@ export async function createSplitBooking(req: Request, res: Response) {
   if (!venue || venue.status !== "verified") return res.status(404).json({ error: "Venue not found." });
 
   // Every named phone must resolve to a real, distinct Kicko player before
-  // anything is created — no partial group, no anonymous placeholders.
+  // anything is created — no partial group, no anonymous placeholders. A
+  // null entry is deliberately left open rather than named.
   const partners: { id: string; name: string; phone: string | null }[] = [];
+  const openSlotCount = partner_phones.filter((p) => p === null).length;
   for (const phone of partner_phones) {
+    if (phone === null) continue;
     const { data: partner, error: partnerError } = await supabase.from("users").select("id, name, phone").eq("phone", phone.trim()).eq("role", "player").maybeSingle();
     if (partnerError) return res.status(500).json({ error: "Could not look up one of the players." });
     if (!partner) return res.status(404).json({ error: `No Kicko player found with phone ${phone.trim()}. They'll need an account first.` });
@@ -266,6 +287,7 @@ export async function createSplitBooking(req: Request, res: Response) {
       service_fee: +(totalTarget - subtotal).toFixed(2),
       total_amount: totalTarget,
       is_walk_in: isWalkInBooking,
+      is_open: openSlotCount > 0,
       payment_deadline: new Date(Date.now() + settings.session_pay_window_minutes * 60_000).toISOString(),
     })
     .select(BOOKING_SELECT)
@@ -279,6 +301,7 @@ export async function createSplitBooking(req: Request, res: Response) {
   const { error: participantsError } = await supabase.from("booking_participants").insert([
     { booking_id: booking.id, user_id: req.user!.id, is_organizer: true, status: "accepted", share_amount: perPersonShare, responded_at: new Date().toISOString() },
     ...partners.map((p) => ({ booking_id: booking.id, user_id: p.id, is_organizer: false, status: "invited" as const, share_amount: perPersonShare, invited_by: req.user!.id })),
+    ...Array.from({ length: openSlotCount }, () => ({ booking_id: booking.id, user_id: null, is_organizer: false, status: "open" as const, share_amount: perPersonShare })),
   ]);
   if (participantsError) {
     await supabase.from("bookings").delete().eq("id", booking.id);
@@ -329,12 +352,70 @@ export async function getMyBooking(req: Request, res: Response) {
 
   const { data: participants } = await getBookingParticipants(booking.id);
   const shaped = (participants ?? []).map(shapeParticipant);
+  const myParticipant = shaped.find((p) => p.user?.id === req.user!.id) ?? null;
   res.status(200).json({
     booking,
     participants: shaped,
-    my_participant: shaped.find((p) => p.user.id === req.user!.id) ?? null,
+    my_participant: myParticipant,
     is_organizer: booking.player_id === req.user!.id,
+    can_claim_open_slot: !myParticipant && booking.is_open && booking.status === "pending_payment" && shaped.some((p) => p.status === "open"),
   });
+}
+
+/** Any logged-in player can claim an "open" (unnamed) slot in a publicly open split booking directly — no invite needed, same idea as joinOpenSession but for a fixed-size group instead of an open-ended side. */
+export async function claimOpenBookingSlot(req: Request, res: Response) {
+  const { data: booking, error: bookingError } = await supabase.from("bookings").select("*").eq("id", req.params.id).eq("booking_type", "split").maybeSingle();
+  if (bookingError) return res.status(500).json({ error: "Could not load booking." });
+  if (!booking) return res.status(404).json({ error: "Booking not found." });
+  if (!booking.is_open) return res.status(403).json({ error: "This booking isn't open to the public." });
+  if (booking.status !== "pending_payment") return res.status(400).json({ error: "This booking isn't accepting new players anymore." });
+
+  const { data: existing } = await supabase.from("booking_participants").select("id").eq("booking_id", booking.id).eq("user_id", req.user!.id).maybeSingle();
+  if (existing) return res.status(400).json({ error: "You're already part of this booking." });
+
+  const { data: openSlot } = await supabase.from("booking_participants").select("id").eq("booking_id", booking.id).eq("status", "open").limit(1).maybeSingle();
+  if (!openSlot) return res.status(409).json({ error: "No open spot left — someone just took the last one." });
+
+  // Re-checking status = 'open' at write time (not just at the read above)
+  // is what makes this safe against two people claiming the same slot at
+  // once: whichever request loses the race updates zero rows and .single()
+  // surfaces that as an error instead of silently double-booking the spot.
+  const { data: claimed, error: claimError } = await supabase
+    .from("booking_participants")
+    .update({ user_id: req.user!.id, status: "accepted", responded_at: new Date().toISOString() })
+    .eq("id", openSlot.id)
+    .eq("status", "open")
+    .select(BOOKING_PARTICIPANT_SELECT)
+    .single();
+  if (claimError || !claimed) return res.status(409).json({ error: "That spot was just taken. Try another open game." });
+
+  res.status(201).json({ booking, participant: shapeParticipant(claimed) });
+}
+
+/**
+ * Publicly browsable — every still-open split booking with a spot left to
+ * claim, across every venue, minus ones the caller's already part of.
+ */
+export async function listOpenSplitBookings(req: Request, res: Response) {
+  const { data: bookings, error } = await supabase
+    .from("bookings")
+    .select(BOOKING_SELECT)
+    .eq("booking_type", "split")
+    .eq("is_open", true)
+    .eq("status", "pending_payment")
+    .order("start_at", { ascending: true });
+  if (error) return res.status(500).json({ error: "Could not load open bookings." });
+
+  const results = [];
+  for (const booking of bookings ?? []) {
+    const { data: participants } = await getBookingParticipants(booking.id);
+    const rows = participants ?? [];
+    const alreadyIn = rows.some((p) => p.user?.id === req.user!.id);
+    const openCount = rows.filter((p) => p.status === "open").length;
+    if (alreadyIn || openCount === 0) continue;
+    results.push({ booking, open_slots: openCount, total_players: rows.length });
+  }
+  res.status(200).json({ bookings: results });
 }
 
 /** Cancels a booking. If it was paid, auto-refunds per the tiered policy. */

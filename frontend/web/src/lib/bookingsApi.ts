@@ -19,6 +19,9 @@ export type Booking = {
   status: BookingStatus;
   payment_status: PaymentStatus;
   payment_deadline: string | null;
+  // Only meaningful for booking_type 'split' — true if the organizer left
+  // at least one slot unnamed for the public to claim (bookingsApi.open()).
+  is_open: boolean;
   cancelled_at: string | null;
   refund_amount: number | null;
   refund_pct: number | null;
@@ -33,7 +36,8 @@ export type Booking = {
 // A fixed, known 2/4-person group booking (tennis singles/doubles) — see
 // bookingsApi.getSplit(). No sides/captain, unlike a match session: everyone
 // named is visible to everyone else the moment the booking is created.
-export type BookingParticipantStatus = 'invited' | 'accepted' | 'declined' | 'removed';
+// 'open' is an unnamed slot with no user yet — see bookingsApi.claimOpenSlot().
+export type BookingParticipantStatus = 'invited' | 'accepted' | 'declined' | 'removed' | 'open';
 export type BookingParticipant = {
   id: string;
   booking_id: string;
@@ -42,8 +46,11 @@ export type BookingParticipant = {
   share_amount: number;
   paid: boolean;
   paid_amount: number;
-  user: { id: string; name: string; email: string; phone: string | null };
+  user: { id: string; name: string; email: string; phone: string | null } | null;
 };
+
+// The lightweight shape bookingsApi.open() returns for browsing.
+export type OpenBookingSummary = { booking: Booking; open_slots: number; total_players: number };
 
 export type Payment = {
   id: string;
@@ -60,15 +67,25 @@ export const bookingsApi = {
   mine: () => apiFetch<{ bookings: Booking[] }>('/api/bookings/mine'),
   venue: () => apiFetch<{ bookings: Booking[] }>('/api/bookings/venue'),
   get: (id: string) =>
-    apiFetch<{ booking: Booking; participants?: BookingParticipant[]; my_participant?: BookingParticipant | null; is_organizer?: boolean }>(`/api/bookings/${id}`),
+    apiFetch<{
+      booking: Booking;
+      participants?: BookingParticipant[];
+      my_participant?: BookingParticipant | null;
+      is_organizer?: boolean;
+      can_claim_open_slot?: boolean;
+    }>(`/api/bookings/${id}`),
+  open: () => apiFetch<{ bookings: OpenBookingSummary[] }>('/api/bookings/open'),
   create: (input: { venue_id: string; start_at: string; end_at: string; phone_number: string }) =>
     apiFetch<{ booking: Booking; payment: Payment }>('/api/bookings', { method: 'POST', body: JSON.stringify(input) }),
-  createSplit: (input: { venue_id: string; start_at: string; end_at: string; format: SplitFormat; partner_phones: string[] }) =>
+  // A partner_phones entry of null leaves that slot open for anyone to claim
+  // instead of naming a specific player.
+  createSplit: (input: { venue_id: string; start_at: string; end_at: string; format: SplitFormat; partner_phones: (string | null)[] }) =>
     apiFetch<{ booking: Booking; participants: BookingParticipant[] }>('/api/bookings/split', { method: 'POST', body: JSON.stringify(input) }),
   cancel: (id: string) => apiFetch<{ booking: Booking }>(`/api/bookings/${id}/cancel`, { method: 'POST' }),
   respond: (id: string, accept: boolean) => apiFetch<{ booking: Booking }>(`/api/bookings/${id}/respond`, { method: 'POST', body: JSON.stringify({ accept }) }),
   paySplitShare: (id: string, phone_number: string) =>
     apiFetch<{ payment: Payment }>(`/api/bookings/${id}/pay`, { method: 'POST', body: JSON.stringify({ phone_number }) }),
+  claimOpenSlot: (id: string) => apiFetch<{ booking: Booking; participant: BookingParticipant }>(`/api/bookings/${id}/claim`, { method: 'POST' }),
 };
 
 export const paymentsApi = {

@@ -230,7 +230,7 @@ function SideRosterCard({
   rows: SessionParticipant[] | { redacted: true; count: number };
   isOrganizer: boolean;
   isCaptain: boolean;
-  callerSide: SessionSide;
+  callerSide: SessionSide | null;
   organizerId: string;
   myUserId?: string;
   removingId: string | null;
@@ -502,6 +502,20 @@ export default function MatchSessionDetail() {
     }
   }
 
+  async function joinOpen(side: SessionSide) {
+    if (!id) return;
+    setSubmitting(true);
+    setActionError(null);
+    try {
+      await sessionsApi.joinOpen(id, side);
+      await load();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Could not join this session.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function completeRoster() {
     if (!id) return;
     setSubmitting(true);
@@ -634,7 +648,22 @@ export default function MatchSessionDetail() {
     );
   }
 
-  const { session, home, away, is_organizer, is_captain, my_participant, home_join_link, away_join_link, per_person_share, total_target, amount_paid_so_far } = detail;
+  const {
+    session,
+    home,
+    away,
+    is_organizer,
+    is_captain,
+    my_participant,
+    home_join_link,
+    away_join_link,
+    per_person_share,
+    total_target,
+    amount_paid_so_far,
+    can_join_open,
+    home_full,
+    away_full,
+  } = detail;
 
   const iHaveInvite = my_participant?.status === 'invited';
   const iCanPayShare = session.phase === 'paying' && my_participant?.status === 'accepted' && !my_participant.paid;
@@ -873,6 +902,29 @@ export default function MatchSessionDetail() {
         </View>
       )}
 
+      {can_join_open && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>This session is open — anyone can join</Text>
+          {actionError && <Text style={styles.error}>{actionError}</Text>}
+          <View style={styles.inviteRow}>
+            <Pressable
+              disabled={submitting || home_full}
+              onPress={() => joinOpen('home')}
+              style={[styles.btn, styles.joinOpenBtn, (submitting || home_full) && styles.btnDisabled]}
+            >
+              <Text style={styles.btnText}>{home_full ? `${sportContent.sideNames.home} full` : `Join ${sportContent.sideNames.home}`}</Text>
+            </Pressable>
+            <Pressable
+              disabled={submitting || away_full}
+              onPress={() => joinOpen('away')}
+              style={[styles.btn, styles.btnOutline, styles.joinOpenBtn, (submitting || away_full) && styles.btnDisabled]}
+            >
+              <Text style={styles.btnOutlineText}>{away_full ? `${sportContent.sideNames.away} full` : `Join ${sportContent.sideNames.away}`}</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+
       <View style={styles.rosterGrid}>
         <SideRosterCard
           side="home"
@@ -1025,6 +1077,7 @@ const styles = StyleSheet.create({
   btnText: { fontFamily: fonts.sansBold, fontSize: 13.5, color: colors.accentText },
   btnOutline: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.border },
   btnOutlineText: { fontFamily: fonts.sansBold, fontSize: 13.5, color: colors.text },
+  joinOpenBtn: { flex: 1, minWidth: 140 },
 
   stkPanel: { alignItems: 'center', paddingVertical: 6 },
   stkIcon: { fontSize: 28, marginBottom: 10 },

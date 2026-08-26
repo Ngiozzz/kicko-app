@@ -53,6 +53,16 @@ export function ManagersIcon({ size = 17, color }: IconProps) {
   );
 }
 
+export function OpenSessionsIcon({ size = 17, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Circle cx={12} cy={12} r={8.5} />
+      <Path d="M3.5 12h17" />
+      <Path d="M12 3.5c2.5 2.3 3.8 5.3 3.8 8.5s-1.3 6.2-3.8 8.5c-2.5-2.3-3.8-5.3-3.8-8.5S9.5 5.8 12 3.5Z" />
+    </Svg>
+  );
+}
+
 export function SettingsIcon({ size = 17, color }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">

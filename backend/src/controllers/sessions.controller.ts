@@ -235,7 +235,7 @@ export async function recomputeSessionFunding(sessionParticipantId: string) {
 export async function createSession(req: Request, res: Response) {
   if (req.user!.role !== "player") return res.status(403).json({ error: "Only players can start a match session." });
 
-  const { venue_id, start_at, end_at } = req.body;
+  const { venue_id, start_at, end_at, is_open } = req.body;
   if (typeof venue_id !== "string" || typeof start_at !== "string" || typeof end_at !== "string") {
     return res.status(400).json({ error: "venue_id, start_at, and end_at are required." });
   }
@@ -264,6 +264,7 @@ export async function createSession(req: Request, res: Response) {
       total_cost: venue.price_peak * hours,
       phase: "joining",
       phase_deadline: minutesFromNow(settings.session_join_window_minutes),
+      is_open: is_open === true,
     })
     .select(SESSION_SELECT)
     .single();
@@ -365,9 +366,13 @@ export async function getSession(req: Request, res: Response) {
   const callerId = req.user!.id;
   const isOrganizer = session.organizer_id === callerId;
   const callerParticipant = (participants ?? []).find((p) => p.user_id === callerId && p.status !== "removed");
-  if (!isOrganizer && !callerParticipant) return res.status(403).json({ error: "You don't have access to this session." });
+  // An open, still-joining session is publicly viewable even before you've
+  // joined it — that's the whole point of "open": no invite needed to see
+  // it or join it, unlike the private default this falls back to.
+  const canBrowse = session.is_open && session.phase === "joining";
+  if (!isOrganizer && !callerParticipant && !canBrowse) return res.status(403).json({ error: "You don't have access to this session." });
 
-  const callerSide: Side = isOrganizer ? "home" : callerParticipant.side;
+  const callerSide: Side | null = isOrganizer ? "home" : callerParticipant ? callerParticipant.side : null;
   // The organizer is always exactly the home captain in this model — but
   // callerSide alone (used for roster VISIBILITY below) is true for every
   // home-side teammate too, not just the captain, so join-link SHARING
@@ -386,6 +391,7 @@ export async function getSession(req: Request, res: Response) {
   const settings = await getPlatformSettings();
   const { totalTarget, perPersonShare } = getCurrentTarget(session, participants ?? [], settings);
   const amountPaidSoFar = await getAmountPaidTotal(activeParticipantIds(participants ?? []));
+  const activeOnSide = (side: Side) => (participants ?? []).filter((p) => p.side === side && p.status !== "declined" && p.status !== "removed").length;
 
   res.status(200).json({
     session,
@@ -400,7 +406,73 @@ export async function getSession(req: Request, res: Response) {
     per_person_share: perPersonShare,
     total_target: totalTarget,
     amount_paid_so_far: amountPaidSoFar,
+    can_join_open: canBrowse && !isOrganizer && !callerParticipant,
+    home_full: activeOnSide("home") >= settings.session_max_per_side,
+    away_full: activeOnSide("away") >= settings.session_max_per_side,
   });
+}
+
+/** Any logged-in player can join a side of a publicly "open" session directly — no invite link, phone invite, or captain approval needed, unlike the private default. */
+export async function joinOpenSession(req: Request, res: Response) {
+  const { data: session, error } = await loadSession(req.params.id);
+  if (error) return res.status(500).json({ error: "Could not load session." });
+  if (!session) return res.status(404).json({ error: "Session not found." });
+  if (!session.is_open) return res.status(403).json({ error: "This session is invite-only." });
+  if (session.phase !== "joining") return res.status(400).json({ error: "This session is no longer accepting new players." });
+
+  const { side } = req.body;
+  if (side !== "home" && side !== "away") return res.status(400).json({ error: "side must be 'home' or 'away'." });
+
+  const { data: participants, error: participantsError } = await getParticipants(session.id);
+  if (participantsError) return res.status(500).json({ error: "Could not load roster." });
+  const existing = (participants ?? []).find((p) => p.user_id === req.user!.id && p.status !== "declined" && p.status !== "removed");
+  if (existing) return res.status(400).json({ error: "You're already part of this session." });
+
+  const settings = await getPlatformSettings();
+  const activeOnSide = (participants ?? []).filter((p) => p.side === side && p.status !== "declined" && p.status !== "removed").length;
+  if (activeOnSide >= settings.session_max_per_side) return res.status(400).json({ error: "This side is full." });
+
+  // Same captaincy rule the invite-link claim path uses: home's captain is
+  // always the organizer, away's captain is whoever gets there first.
+  const willBecomeCaptain = side === "away" && !findCaptain(participants ?? [], "away");
+
+  const { data: participant, error: insertError } = await supabase
+    .from("session_participants")
+    .insert({ session_id: session.id, user_id: req.user!.id, side, is_captain: willBecomeCaptain, status: "accepted", responded_at: new Date().toISOString() })
+    .select(PARTICIPANT_SELECT)
+    .single();
+  if (insertError) return res.status(500).json({ error: "Could not join this session." });
+
+  res.status(201).json({ session, participant: shapeParticipant(participant) });
+}
+
+/**
+ * Publicly browsable — every still-joining session an organizer marked
+ * "open," across every venue, minus ones the caller's already part of.
+ * One extra query per session for its headcount; fine at today's volume,
+ * revisit if this list ever gets long enough to matter.
+ */
+export async function listOpenSessions(req: Request, res: Response) {
+  const { data: sessions, error } = await supabase
+    .from("match_sessions")
+    .select(SESSION_SELECT)
+    .eq("is_open", true)
+    .eq("phase", "joining")
+    .order("start_at", { ascending: true });
+  if (error) return res.status(500).json({ error: "Could not load open sessions." });
+
+  const results = [];
+  for (const session of sessions ?? []) {
+    const { data: participants } = await getParticipants(session.id);
+    const alreadyIn = (participants ?? []).some((p) => p.user_id === req.user!.id && p.status !== "declined" && p.status !== "removed");
+    if (alreadyIn) continue;
+    results.push({
+      session,
+      home_count: (participants ?? []).filter((p) => p.side === "home" && p.status === "accepted").length,
+      away_count: (participants ?? []).filter((p) => p.side === "away" && p.status === "accepted").length,
+    });
+  }
+  res.status(200).json({ sessions: results });
 }
 
 /** Captain invites a known Kicko player onto their own side by phone number. */

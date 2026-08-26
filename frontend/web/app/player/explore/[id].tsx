@@ -49,6 +49,13 @@ export default function ExploreVenueDetail() {
   const [mode, setMode] = useState<BookingMode>('solo');
   const [splitFormat, setSplitFormat] = useState<SplitFormat>('singles');
   const [partnerPhones, setPartnerPhones] = useState<string[]>(['']);
+  // Per-slot: leave that "other player" spot open for any Kicko player to
+  // claim instead of naming a specific phone number.
+  const [partnerOpen, setPartnerOpen] = useState<boolean[]>([false]);
+  // Squad sports only (match_sessions) — private (default) is invite-only,
+  // same as every session before this existed; open is publicly listed
+  // under "Open Sessions" and joinable with no invite at all.
+  const [isOpenSession, setIsOpenSession] = useState(false);
   const [stage, setStage] = useState<Stage>('form');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -79,6 +86,7 @@ export default function ExploreVenueDetail() {
     if (!first) return;
     setSplitFormat(first.key);
     setPartnerPhones(Array(first.totalPlayers - 1).fill(''));
+    setPartnerOpen(Array(first.totalPlayers - 1).fill(false));
   }, [venue?.sport]);
 
   async function submitReview() {
@@ -177,7 +185,12 @@ export default function ExploreVenueDetail() {
     setFormError(null);
     setSubmitting(true);
     try {
-      const { session } = await sessionsApi.create({ venue_id: venue.id, start_at: selectionRange.start.toISOString(), end_at: selectionRange.end.toISOString() });
+      const { session } = await sessionsApi.create({
+        venue_id: venue.id,
+        start_at: selectionRange.start.toISOString(),
+        end_at: selectionRange.end.toISOString(),
+        is_open: isOpenSession,
+      });
       router.push(`/player/sessions/${session.id}`);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Could not start a match session.');
@@ -190,8 +203,8 @@ export default function ExploreVenueDetail() {
     if (!venue || !selectionRange) return;
     const format = getSportContent(venue.sport).pairFormats.find((f) => f.key === splitFormat);
     if (!format) return;
-    if (partnerPhones.some((p) => !p.trim())) {
-      setFormError(`Enter phone numbers for all ${format.totalPlayers - 1} other player${format.totalPlayers - 1 === 1 ? '' : 's'}.`);
+    if (partnerPhones.some((p, i) => !partnerOpen[i] && !p.trim())) {
+      setFormError(`Name each other player's phone number, or mark their spot open.`);
       return;
     }
     setFormError(null);
@@ -202,7 +215,7 @@ export default function ExploreVenueDetail() {
         start_at: selectionRange.start.toISOString(),
         end_at: selectionRange.end.toISOString(),
         format: splitFormat,
-        partner_phones: partnerPhones.map((p) => p.trim()),
+        partner_phones: partnerPhones.map((p, i) => (partnerOpen[i] ? null : p.trim())),
       });
       router.push(`/player/bookings/${booking.id}`);
     } catch (err) {
@@ -441,6 +454,7 @@ export default function ExploreVenueDetail() {
                       onPress={() => {
                         setSplitFormat(f.key);
                         setPartnerPhones(Array(f.totalPlayers - 1).fill(''));
+                        setPartnerOpen(Array(f.totalPlayers - 1).fill(false));
                       }}
                       style={[styles.modeOption, splitFormat === f.key && styles.modeOptionActive]}
                     >
@@ -451,14 +465,23 @@ export default function ExploreVenueDetail() {
 
                 {partnerPhones.map((p, i) => (
                   <View key={i}>
-                    <Text style={styles.fieldLabel}>Player {i + 2} phone</Text>
-                    <TextInput
-                      value={p}
-                      onChangeText={(v) => setPartnerPhones((prev) => prev.map((existing, idx) => (idx === i ? v : existing)))}
-                      placeholder="+254 7XX XXX XXX"
-                      placeholderTextColor={colors.textSoft}
-                      style={styles.phoneInput}
-                    />
+                    <View style={styles.slotHeaderRow}>
+                      <Text style={styles.fieldLabel}>Player {i + 2}</Text>
+                      <Pressable onPress={() => setPartnerOpen((prev) => prev.map((existing, idx) => (idx === i ? !existing : existing)))}>
+                        <Text style={styles.slotToggleLink}>{partnerOpen[i] ? 'Name a player instead' : "I don't have one yet — leave it open"}</Text>
+                      </Pressable>
+                    </View>
+                    {partnerOpen[i] ? (
+                      <Text style={styles.openSlotNote}>Open — any Kicko player can claim this spot from Open Sessions.</Text>
+                    ) : (
+                      <TextInput
+                        value={p}
+                        onChangeText={(v) => setPartnerPhones((prev) => prev.map((existing, idx) => (idx === i ? v : existing)))}
+                        placeholder="+254 7XX XXX XXX"
+                        placeholderTextColor={colors.textSoft}
+                        style={styles.phoneInput}
+                      />
+                    )}
                   </View>
                 ))}
 
@@ -474,7 +497,8 @@ export default function ExploreVenueDetail() {
                 </View>
 
                 <Text style={styles.splitNote}>
-                  Every player named above needs a Kicko account already — they'll get a notification to accept and pay their own share.
+                  A named player needs a Kicko account already — they'll get a notification to accept and pay their own share. An open spot is
+                  listed under Open Sessions for anyone to claim.
                 </Text>
 
                 {formError && <Text style={styles.error}>{formError}</Text>}
@@ -490,7 +514,22 @@ export default function ExploreVenueDetail() {
             ) : (
               <>
                 <Text style={styles.splitNote}>
-                  You'll invite two sides (home &amp; away), each led by a captain, and everyone pays their own share once the roster's set.
+                  You'll invite two sides ({sportContent.sideNames.home} &amp; {sportContent.sideNames.away}), and everyone pays their own share once
+                  the roster's set.
+                </Text>
+
+                <View style={styles.visibilityToggle}>
+                  <Pressable onPress={() => setIsOpenSession(false)} style={[styles.modeOption, !isOpenSession && styles.modeOptionActive]}>
+                    <Text style={[styles.modeOptionText, !isOpenSession && styles.modeOptionTextActive]}>Private</Text>
+                  </Pressable>
+                  <Pressable onPress={() => setIsOpenSession(true)} style={[styles.modeOption, isOpenSession && styles.modeOptionActive]}>
+                    <Text style={[styles.modeOptionText, isOpenSession && styles.modeOptionTextActive]}>Open</Text>
+                  </Pressable>
+                </View>
+                <Text style={styles.openSlotNote}>
+                  {isOpenSession
+                    ? 'Listed under Open Sessions — any Kicko player can join a side directly, no invite needed.'
+                    : 'Invite-only — players join via a link or phone invite you send them.'}
                 </Text>
 
                 {formError && <Text style={styles.error}>{formError}</Text>}
@@ -618,8 +657,12 @@ const styles = StyleSheet.create({
   modeOptionText: { fontFamily: fonts.sansSemiBold, fontSize: 12.5, color: colors.textSoft },
   modeOptionTextActive: { color: colors.accentText },
   splitNote: { fontFamily: fonts.sans, fontSize: 13, color: colors.textSoft, lineHeight: 19, marginTop: 14, marginBottom: 4 },
+  visibilityToggle: { flexDirection: 'row', backgroundColor: colors.bg, borderRadius: radius.pill, padding: 4, marginTop: 14, gap: 4 },
+  openSlotNote: { fontFamily: fonts.sans, fontSize: 12, color: colors.textSoft, lineHeight: 17, marginTop: 8 },
 
   fieldLabel: { fontFamily: fonts.sansBold, fontSize: 11.5, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSoft, marginTop: 16, marginBottom: 6 },
+  slotHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  slotToggleLink: { fontFamily: fonts.sansSemiBold, fontSize: 11.5, color: colors.accent, marginBottom: 6 },
   fieldValue: { backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14 },
   fieldValueText: { fontFamily: fonts.sans, fontSize: 14, color: colors.text },
   phoneInput: {
