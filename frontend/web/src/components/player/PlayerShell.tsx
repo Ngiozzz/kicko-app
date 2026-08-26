@@ -44,6 +44,9 @@ function breadcrumbFor(pathname: string): Crumb[] {
   if (pathname.startsWith('/player/explore/')) {
     return [{ label: 'Home', href: '/player' }, { label: 'Explore', href: '/player/explore' }, { label: 'Venue' }];
   }
+  if (pathname === '/player/sessions/new') {
+    return [{ label: 'Home', href: '/player' }, { label: 'Open Sessions', href: '/player/sessions' }, { label: 'New session' }];
+  }
   if (pathname.startsWith('/player/sessions/')) {
     return [{ label: 'Home', href: '/player' }, { label: 'Open Sessions', href: '/player/sessions' }, { label: 'Match session' }];
   }

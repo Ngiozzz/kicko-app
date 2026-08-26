@@ -33,7 +33,7 @@ type BookingMode = 'solo' | 'split';
 const MAX_BOOKING_HOURS = 12;
 
 export default function ExploreVenueDetail() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, open } = useLocalSearchParams<{ id: string; open?: string }>();
   const router = useRouter();
 
   const [venue, setVenue] = useState<Venue | null>(null);
@@ -97,6 +97,16 @@ export default function ExploreVenueDetail() {
     if (!venue) return;
     setSessionFormat(getSportContent(venue.sport).sessionFormats[0]?.key ?? null);
   }, [venue?.sport]);
+
+  // Arriving here via the Open Sessions tab's "+ Session" picker (?open=1)
+  // pre-selects "Split with friends" + the Open toggle, so all that's left
+  // is picking a date/time — same createSession call either way.
+  useEffect(() => {
+    if (!venue || open !== '1') return;
+    if (getSportContent(venue.sport).bookingMode !== 'squad') return;
+    setMode('split');
+    setIsOpenSession(true);
+  }, [venue?.sport, open]);
 
   async function submitReview() {
     if (!id || !eligibleBookingId) return;

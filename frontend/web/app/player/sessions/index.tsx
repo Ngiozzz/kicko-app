@@ -98,6 +98,9 @@ export default function OpenSessions() {
           <Text style={styles.title}>Open Sessions</Text>
           <Text style={styles.subtitle}>Games and bookings other players have opened up — join directly, no invite needed.</Text>
         </View>
+        <Pressable style={styles.newBtn} onPress={() => router.push('/player/sessions/new')}>
+          <Text style={styles.newBtnText}>+ Session</Text>
+        </Pressable>
       </View>
 
       {rows === null && !error && (
@@ -148,9 +151,11 @@ export default function OpenSessions() {
 }
 
 const styles = StyleSheet.create({
-  headRow: { marginBottom: 24 },
+  headRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap', marginBottom: 24 },
   title: { fontFamily: fonts.serif, fontSize: 26, color: colors.text, marginBottom: 6 },
   subtitle: { fontFamily: fonts.sans, fontSize: 14, color: colors.textSoft, maxWidth: 560, lineHeight: 20 },
+  newBtn: { backgroundColor: colors.accent, borderRadius: radius.pill, paddingVertical: 11, paddingHorizontal: 18 },
+  newBtnText: { fontFamily: fonts.sansBold, fontSize: 13.5, color: colors.accentText },
 
   loading: { paddingVertical: 60, alignItems: 'center' },
   error: { fontFamily: fonts.sans, fontSize: 13, color: colors.danger, marginBottom: 12 },
