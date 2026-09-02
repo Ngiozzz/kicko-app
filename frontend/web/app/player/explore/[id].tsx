@@ -536,16 +536,25 @@ export default function ExploreVenueDetail() {
                 {sportContent.sessionFormats.length > 0 && (
                   <>
                     <Text style={styles.fieldLabel}>Game type</Text>
-                    <View style={styles.modeToggle}>
-                      {sportContent.sessionFormats.map((f) => (
-                        <Pressable
-                          key={f.key}
-                          onPress={() => setSessionFormat(f.key)}
-                          style={[styles.modeOption, sessionFormat === f.key && styles.modeOptionActive]}
-                        >
-                          <Text style={[styles.modeOptionText, sessionFormat === f.key && styles.modeOptionTextActive]}>{f.label}</Text>
-                        </Pressable>
-                      ))}
+                    <View style={styles.formatList}>
+                      {sportContent.sessionFormats.map((f) => {
+                        const active = sessionFormat === f.key;
+                        return (
+                          <Pressable
+                            key={f.key}
+                            onPress={() => setSessionFormat(f.key)}
+                            style={[styles.formatCard, active && styles.formatCardActive]}
+                          >
+                            <View style={styles.formatCardText}>
+                              <Text style={[styles.formatCardLabel, active && styles.formatCardLabelActive]}>{f.label}</Text>
+                              <Text style={styles.formatCardDesc}>{f.description}</Text>
+                            </View>
+                            <View style={[styles.formatRadio, active && styles.formatRadioActive]}>
+                              {active && <View style={styles.formatRadioDot} />}
+                            </View>
+                          </Pressable>
+                        );
+                      })}
                     </View>
                   </>
                 )}
@@ -693,6 +702,36 @@ const styles = StyleSheet.create({
   modeOptionActive: { backgroundColor: colors.accent },
   modeOptionText: { fontFamily: fonts.sansSemiBold, fontSize: 12.5, color: colors.textSoft },
   modeOptionTextActive: { color: colors.accentText },
+
+  formatList: { gap: 8, marginBottom: 6 },
+  formatCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  formatCardActive: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
+  formatCardText: { flex: 1 },
+  formatCardLabel: { fontFamily: fonts.sansBold, fontSize: 13.5, color: colors.text },
+  formatCardLabelActive: { color: colors.accent },
+  formatCardDesc: { fontFamily: fonts.sans, fontSize: 11.5, lineHeight: 15, color: colors.textSoft, marginTop: 2 },
+  formatRadio: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  formatRadioActive: { borderColor: colors.accent },
+  formatRadioDot: { width: 9, height: 9, borderRadius: 4.5, backgroundColor: colors.accent },
   splitNote: { fontFamily: fonts.sans, fontSize: 13, color: colors.textSoft, lineHeight: 19, marginTop: 14, marginBottom: 4 },
   visibilityToggle: { flexDirection: 'row', backgroundColor: colors.bg, borderRadius: radius.pill, padding: 4, marginTop: 14, gap: 4 },
   openSlotNote: { fontFamily: fonts.sans, fontSize: 12, color: colors.textSoft, lineHeight: 17, marginTop: 8 },

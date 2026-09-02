@@ -16,7 +16,7 @@ export type PairFormat = { key: SplitFormat; label: string; totalPlayers: number
 // booking mechanics, capacity limit, or payment flow, just what's shown.
 // Sports with a single shape (football, basketball) leave this empty and
 // skip the picker entirely.
-export type SessionFormat = { key: string; label: string };
+export type SessionFormat = { key: string; label: string; description: string };
 
 export type SportContent = {
   venueWord: string;
@@ -92,9 +92,9 @@ const RUGBY: SportContent = {
   bookingMode: 'squad',
   pairFormats: [],
   sessionFormats: [
-    { key: 'sevens', label: 'Sevens (7s)' },
-    { key: 'fifteens', label: 'Union 15s' },
-    { key: 'touch', label: 'Touch / Social' },
+    { key: 'sevens', label: 'Sevens (7s)', description: "7-a-side, fast-paced — Kenya's signature format (Shujaa, Safari Sevens)." },
+    { key: 'fifteens', label: 'Union 15s', description: 'Traditional 15-a-side rugby union, the full-contact original.' },
+    { key: 'touch', label: 'Touch / Social', description: 'Low-contact and casual — no scrums, no tackling, just touch.' },
   ],
 };
 
