@@ -140,17 +140,22 @@ export const SAMPLE_VARS: Record<EmailTemplateKey, Record<string, string>> = {
 export async function renderEmailTemplate(
   key: EmailTemplateKey,
   vars: Record<string, string>,
-  draft?: { subject: string; html: string }
+  draft?: { subject: string; html: string; useWrapper?: boolean }
 ): Promise<{ subject: string; html: string }> {
-  let template = draft;
-  if (!template) {
-    const { data } = await supabase.from("email_templates").select("subject, html").eq("key", key).maybeSingle();
-    template = data?.subject && data?.html ? { subject: data.subject, html: data.html } : FALLBACK_TEMPLATES[key];
+  let template: { subject: string; html: string; useWrapper: boolean };
+  if (draft) {
+    template = { subject: draft.subject, html: draft.html, useWrapper: draft.useWrapper ?? true };
+  } else {
+    const { data } = await supabase.from("email_templates").select("subject, html, use_wrapper").eq("key", key).maybeSingle();
+    template = data?.subject && data?.html
+      ? { subject: data.subject, html: data.html, useWrapper: data.use_wrapper }
+      : { ...FALLBACK_TEMPLATES[key], useWrapper: true };
   }
 
   const safeVars = Object.fromEntries(Object.entries(vars).map(([k, v]) => [k, RAW_VARS.has(k) ? v : escapeHtml(v)]));
+  const body = renderPlaceholders(template.html, safeVars);
 
-  return { subject: template.subject, html: wrapper(renderPlaceholders(template.html, safeVars)) };
+  return { subject: template.subject, html: template.useWrapper ? wrapper(body) : body };
 }
 
 /** Renders `key` against the DB (or fallback) template and sends it — the one call site every transactional-email trigger should use. */

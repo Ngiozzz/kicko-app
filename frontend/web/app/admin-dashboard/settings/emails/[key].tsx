@@ -9,6 +9,19 @@ import { emailTemplatesApi, EMAIL_TEMPLATE_LABELS, EmailTemplate, EmailTemplateK
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 const PREVIEW_DEBOUNCE_MS = 500;
 
+// Storage filenames are prefixed with the template key (e.g.
+// "booking_confirmed_logo.png") instead of a timestamp/random suffix —
+// human-readable, and re-uploading the same filename for the same
+// template deliberately overwrites it (upsert) rather than piling up
+// duplicates, so iterating on a logo is a one-click re-upload.
+function assetPath(templateKey: string, filename: string): string {
+  const dot = filename.lastIndexOf('.');
+  const base = dot > 0 ? filename.slice(0, dot) : filename;
+  const ext = (dot > 0 ? filename.slice(dot + 1) : 'jpg').toLowerCase();
+  const sanitizedBase = base.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'image';
+  return `${templateKey}/${templateKey}_${sanitizedBase}.${ext}`;
+}
+
 type IconProps = { size?: number; color: string };
 
 function SaveIcon({ size = 14, color }: IconProps) {
@@ -45,6 +58,16 @@ function ResetIcon({ size = 14, color }: IconProps) {
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
       <Path d="M3 12a9 9 0 1 0 3-6.7" />
       <Path d="M3 4v5h5" />
+    </Svg>
+  );
+}
+
+function UploadIcon({ size = 14, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M12 16V4" />
+      <Path d="M6 10l6-6 6 6" />
+      <Path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" />
     </Svg>
   );
 }
@@ -115,6 +138,7 @@ export default function AdminEmailTemplateEditor() {
   const [template, setTemplate] = useState<EmailTemplate | null>(null);
   const [subject, setSubject] = useState('');
   const [html, setHtml] = useState('');
+  const [useWrapper, setUseWrapper] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
@@ -129,6 +153,7 @@ export default function AdminEmailTemplateEditor() {
   const [sendingTest, setSendingTest] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [bundleMessage, setBundleMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!key) return;
@@ -140,6 +165,7 @@ export default function AdminEmailTemplateEditor() {
         setTemplate(t);
         setSubject(t.subject);
         setHtml(t.html);
+        setUseWrapper(t.useWrapper);
       })
       .catch((err) => setLoadError(err instanceof Error ? err.message : 'Could not load this template.'));
   }, [key]);
@@ -152,7 +178,7 @@ export default function AdminEmailTemplateEditor() {
     if (previewTimer.current) clearTimeout(previewTimer.current);
     previewTimer.current = setTimeout(() => {
       emailTemplatesApi
-        .previewDraft(key, subject, html)
+        .previewDraft(key, subject, html, useWrapper)
         .then((res) => {
           setPreviewSubject(res.subject);
           setPreviewHtml(res.html);
@@ -166,7 +192,7 @@ export default function AdminEmailTemplateEditor() {
       if (previewTimer.current) clearTimeout(previewTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, template, subject, html]);
+  }, [key, template, subject, html, useWrapper]);
 
   async function handleSave() {
     if (!key) return;
@@ -174,8 +200,10 @@ export default function AdminEmailTemplateEditor() {
     setActionError(null);
     setSaved(false);
     try {
-      const res = await emailTemplatesApi.update(key, subject, html);
-      setTemplate((t) => (t ? { ...t, subject: res.template.subject, html: res.template.html, updated_at: res.template.updated_at, isDefault: false } : t));
+      const res = await emailTemplatesApi.update(key, subject, html, useWrapper);
+      setTemplate((t) =>
+        t ? { ...t, subject: res.template.subject, html: res.template.html, useWrapper: res.template.useWrapper, updated_at: res.template.updated_at, isDefault: false } : t
+      );
       setSaved(true);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Could not save this template.');
@@ -191,9 +219,12 @@ export default function AdminEmailTemplateEditor() {
     setSaved(false);
     try {
       const res = await emailTemplatesApi.reset(key);
-      setTemplate((t) => (t ? { ...t, subject: res.template.subject, html: res.template.html, updated_at: res.template.updated_at, isDefault: true } : t));
+      setTemplate((t) =>
+        t ? { ...t, subject: res.template.subject, html: res.template.html, useWrapper: res.template.useWrapper, updated_at: res.template.updated_at, isDefault: true } : t
+      );
       setSubject(res.template.subject);
       setHtml(res.template.html);
+      setUseWrapper(res.template.useWrapper);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Could not reset this template.');
     } finally {
@@ -207,7 +238,7 @@ export default function AdminEmailTemplateEditor() {
     setActionError(null);
     setTestSentTo(null);
     try {
-      const res = await emailTemplatesApi.sendTest(key, { subject, html }, testEmail.trim() || undefined);
+      const res = await emailTemplatesApi.sendTest(key, { subject, html, useWrapper }, testEmail.trim() || undefined);
       setTestSentTo(res.sentTo);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Could not send a test email.');
@@ -239,14 +270,88 @@ export default function AdminEmailTemplateEditor() {
       setActionError(null);
       setUploadingImage(true);
       try {
-        const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-        const path = `${key}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const { error: uploadError } = await supabase.storage.from('email-assets').upload(path, file);
+        const path = assetPath(key, file.name);
+        const { error: uploadError } = await supabase.storage.from('email-assets').upload(path, file, { upsert: true });
         if (uploadError) throw uploadError;
         const { data } = supabase.storage.from('email-assets').getPublicUrl(path);
         setHtml((h) => `${h}\n<img src="${data.publicUrl}" alt="" style="max-width:100%;display:block;margin:12px 0;" />`);
       } catch (err) {
         setActionError(err instanceof Error ? err.message : 'Could not upload this image.');
+      } finally {
+        setUploadingImage(false);
+      }
+    };
+    input.click();
+  }
+
+  // Bring in a whole template built elsewhere: pick one .html file plus
+  // every image it references, in one go. Each image gets uploaded under
+  // this template's key-prefixed name (see assetPath), then any
+  // <img src="logo.png">-style reference in the HTML — matched by
+  // filename only, ignoring whatever local path preceded it — gets
+  // rewritten to the real hosted URL. Replaces the whole body (same as
+  // "Reset to default" already does), so unsaved manual edits are lost.
+  function pickTemplateBundle() {
+    if (typeof document === 'undefined') return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.html,text/html,image/*';
+    input.multiple = true;
+    input.onchange = async () => {
+      const files = Array.from(input.files ?? []);
+      if (files.length === 0) return;
+
+      const htmlFiles = files.filter((f) => f.name.toLowerCase().endsWith('.html') || f.type === 'text/html');
+      const imageFiles = files.filter((f) => !htmlFiles.includes(f));
+
+      if (htmlFiles.length !== 1) {
+        setActionError(htmlFiles.length === 0 ? 'Select one .html file along with your images.' : 'Select only one .html file at a time.');
+        return;
+      }
+      const oversized = imageFiles.find((f) => f.size > MAX_IMAGE_BYTES);
+      if (oversized) {
+        setActionError(`${oversized.name} is over 4MB.`);
+        return;
+      }
+
+      setActionError(null);
+      setBundleMessage(null);
+      setUploadingImage(true);
+      try {
+        const urlByFilename = new Map<string, string>();
+        for (const img of imageFiles) {
+          const path = assetPath(key, img.name);
+          const { error: uploadError } = await supabase.storage.from('email-assets').upload(path, img, { upsert: true });
+          if (uploadError) throw uploadError;
+          const { data } = supabase.storage.from('email-assets').getPublicUrl(path);
+          urlByFilename.set(img.name.toLowerCase(), data.publicUrl);
+        }
+
+        const rawHtml = await htmlFiles[0].text();
+        let matched = 0;
+        const rewritten = rawHtml.replace(/(src\s*=\s*["'])([^"']*)(["'])/gi, (whole, prefix, srcValue, suffix) => {
+          const filename = srcValue.split('/').pop()?.toLowerCase() ?? '';
+          const url = urlByFilename.get(filename);
+          if (!url) return whole;
+          matched += 1;
+          return `${prefix}${url}${suffix}`;
+        });
+
+        setHtml(rewritten);
+        // A full document (its own <html>/<head>) should never be nested
+        // inside Kicko's wrapper div — force the toggle off so it renders
+        // exactly as uploaded, rather than leaving that for the admin to
+        // notice via a broken-looking preview.
+        const isFullDocument = /<html[\s>]/i.test(rawHtml) || /<!doctype/i.test(rawHtml);
+        if (isFullDocument) setUseWrapper(false);
+
+        const uploadNote =
+          imageFiles.length === 0
+            ? 'Loaded your HTML template.'
+            : `Uploaded ${imageFiles.length} image${imageFiles.length === 1 ? '' : 's'}, matched ${matched} reference${matched === 1 ? '' : 's'} in your HTML.`;
+        setBundleMessage(isFullDocument ? `${uploadNote} Detected a full HTML document, so Kicko's banner/footer was switched off.` : uploadNote);
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'Could not upload this template.');
       } finally {
         setUploadingImage(false);
       }
@@ -290,6 +395,20 @@ export default function AdminEmailTemplateEditor() {
             />
           </View>
 
+          <Pressable style={styles.wrapperToggleRow} onPress={() => setUseWrapper((v) => !v)}>
+            <View style={[styles.switchTrack, useWrapper && styles.switchTrackOn]}>
+              <View style={[styles.switchThumb, useWrapper && styles.switchThumbOn]} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.switchLabel}>Use Kicko&apos;s banner &amp; footer</Text>
+              <Text style={styles.switchHint}>
+                {useWrapper
+                  ? 'On — your HTML sits inside the standard Kicko frame (logo banner above, address line below).'
+                  : "Off — sent exactly as your HTML, no banner or footer added. Use this for a fully custom uploaded design."}
+              </Text>
+            </View>
+          </Pressable>
+
           <View style={styles.varsBox}>
             <Text style={styles.varsLabel}>Placeholders available in this email</Text>
             <Text style={styles.varsList}>{template.vars.map((v) => `{{${v}}}`).join('   ')}</Text>
@@ -298,6 +417,7 @@ export default function AdminEmailTemplateEditor() {
           {actionError ? <Text style={styles.error}>{actionError}</Text> : null}
           {saved ? <Text style={styles.saved}>Saved.</Text> : null}
           {testSentTo ? <Text style={styles.saved}>Test sent to {testSentTo}.</Text> : null}
+          {bundleMessage ? <Text style={styles.saved}>{bundleMessage}</Text> : null}
 
           <View style={styles.testRow}>
             <TextInput
@@ -314,6 +434,12 @@ export default function AdminEmailTemplateEditor() {
 
           <View style={styles.actions}>
             <ActionButton icon={SaveIcon} label={saving ? 'Saving…' : 'Save changes'} onPress={handleSave} disabled={saving} variant="primary" />
+            <ActionButton
+              icon={UploadIcon}
+              label={uploadingImage ? 'Uploading…' : 'Upload template'}
+              onPress={pickTemplateBundle}
+              disabled={uploadingImage}
+            />
             <ActionButton icon={ImageIcon} label={uploadingImage ? 'Uploading…' : 'Add image'} onPress={pickImage} disabled={uploadingImage} />
             <ActionButton icon={SendIcon} label={sendingTest ? 'Sending…' : 'Send me a test'} onPress={handleSendTest} disabled={sendingTest} />
             {!template.isDefault && (
@@ -381,6 +507,14 @@ const styles = StyleSheet.create({
     maxWidth: 560,
   },
   htmlInput: { minHeight: 260, textAlignVertical: 'top', fontFamily: 'monospace' as any, fontSize: 12.5 },
+
+  wrapperToggleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+  switchTrack: { width: 38, height: 22, borderRadius: radius.pill, backgroundColor: colors.border, padding: 2, justifyContent: 'center' },
+  switchTrackOn: { backgroundColor: colors.accent },
+  switchThumb: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#fff' },
+  switchThumbOn: { transform: [{ translateX: 16 }] },
+  switchLabel: { fontFamily: fonts.sansSemiBold, fontSize: 13, color: colors.text, marginBottom: 2 },
+  switchHint: { fontFamily: fonts.sans, fontSize: 12, color: colors.textSoft, lineHeight: 16 },
 
   varsBox: { backgroundColor: colors.accentSoft, borderRadius: radius.md, padding: 12, marginBottom: 18 },
   varsLabel: { fontFamily: fonts.sansSemiBold, fontSize: 10, color: colors.accent, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6 },

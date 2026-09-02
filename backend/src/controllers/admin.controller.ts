@@ -428,7 +428,7 @@ function isEmailTemplateKey(key: string): key is EmailTemplateKey {
 export async function listEmailTemplates(req: Request, res: Response) {
   if (!requireAdmin(req, res)) return;
 
-  const { data, error } = await supabase.from("email_templates").select("key, subject, html, updated_at");
+  const { data, error } = await supabase.from("email_templates").select("key, subject, html, use_wrapper, updated_at");
   if (error) return res.status(500).json({ error: "Could not load email templates." });
 
   const byKey = new Map((data ?? []).map((row) => [row.key, row]));
@@ -436,8 +436,8 @@ export async function listEmailTemplates(req: Request, res: Response) {
     const vars = Object.keys(SAMPLE_VARS[key as EmailTemplateKey]);
     const row = byKey.get(key);
     return row
-      ? { key, subject: row.subject, html: row.html, updated_at: row.updated_at, isDefault: false, vars }
-      : { key, ...FALLBACK_TEMPLATES[key as EmailTemplateKey], updated_at: null, isDefault: true, vars };
+      ? { key, subject: row.subject, html: row.html, useWrapper: row.use_wrapper, updated_at: row.updated_at, isDefault: false, vars }
+      : { key, ...FALLBACK_TEMPLATES[key as EmailTemplateKey], useWrapper: true, updated_at: null, isDefault: true, vars };
   });
 
   res.status(200).json({ templates });
@@ -450,18 +450,19 @@ export async function updateEmailTemplate(req: Request, res: Response) {
   const { key } = req.params;
   if (!isEmailTemplateKey(key)) return res.status(404).json({ error: "Unknown email template." });
 
-  const { subject, html } = req.body;
+  const { subject, html, useWrapper } = req.body;
   if (typeof subject !== "string" || !subject.trim()) return res.status(400).json({ error: "Subject is required." });
   if (typeof html !== "string" || !html.trim()) return res.status(400).json({ error: "Email body is required." });
+  if (useWrapper !== undefined && typeof useWrapper !== "boolean") return res.status(400).json({ error: "useWrapper must be a boolean." });
 
   const { data, error } = await supabase
     .from("email_templates")
-    .upsert({ key, subject: subject.trim(), html })
-    .select("key, subject, html, updated_at")
+    .upsert({ key, subject: subject.trim(), html, use_wrapper: useWrapper ?? true })
+    .select("key, subject, html, use_wrapper, updated_at")
     .single();
 
   if (error || !data) return res.status(500).json({ error: "Could not save this template." });
-  res.status(200).json({ template: { ...data, isDefault: false } });
+  res.status(200).json({ template: { key: data.key, subject: data.subject, html: data.html, useWrapper: data.use_wrapper, updated_at: data.updated_at, isDefault: false } });
 }
 
 /** Deletes the DB row for this key, reverting it to the hardcoded fallback copy. */
@@ -474,7 +475,7 @@ export async function resetEmailTemplate(req: Request, res: Response) {
   const { error } = await supabase.from("email_templates").delete().eq("key", key);
   if (error) return res.status(500).json({ error: "Could not reset this template." });
 
-  res.status(200).json({ template: { key, ...FALLBACK_TEMPLATES[key], updated_at: null, isDefault: true } });
+  res.status(200).json({ template: { key, ...FALLBACK_TEMPLATES[key], useWrapper: true, updated_at: null, isDefault: true } });
 }
 
 /**
@@ -489,10 +490,11 @@ export async function previewDraftEmailTemplate(req: Request, res: Response) {
   const { key } = req.params;
   if (!isEmailTemplateKey(key)) return res.status(404).json({ error: "Unknown email template." });
 
-  const { subject, html } = req.body;
+  const { subject, html, useWrapper } = req.body;
   if (typeof subject !== "string" || typeof html !== "string") return res.status(400).json({ error: "Subject and body are required." });
+  if (useWrapper !== undefined && typeof useWrapper !== "boolean") return res.status(400).json({ error: "useWrapper must be a boolean." });
 
-  const rendered = await renderEmailTemplate(key, SAMPLE_VARS[key], { subject, html });
+  const rendered = await renderEmailTemplate(key, SAMPLE_VARS[key], { subject, html, useWrapper });
   res.status(200).json(rendered);
 }
 
@@ -505,8 +507,8 @@ export async function sendTestEmailTemplate(req: Request, res: Response) {
   const { key } = req.params;
   if (!isEmailTemplateKey(key)) return res.status(404).json({ error: "Unknown email template." });
 
-  const { subject, html, to } = req.body ?? {};
-  const draft = typeof subject === "string" && typeof html === "string" ? { subject, html } : undefined;
+  const { subject, html, useWrapper, to } = req.body ?? {};
+  const draft = typeof subject === "string" && typeof html === "string" ? { subject, html, useWrapper } : undefined;
 
   const recipient = typeof to === "string" && to.trim() ? to.trim() : req.user!.email;
   if (!recipient) return res.status(400).json({ error: "No email address to send the test to." });

@@ -1,0 +1,197 @@
+<!--
+  Kicko - "Booking confirmed" email, restyled.
+  ================================================================
+  This is a design reference, not wired into the app - open it directly
+  in a browser to preview it. Real email HTML has to work in Outlook's
+  Word-based renderer, so it's built the old way: nested tables,
+  inline styles on every element, no flexbox/grid. That's why it looks
+  more verbose than the app's own React code.
+
+  How this maps onto the real system (backend/src/services/email.service.ts):
+    - The banner image and the "Kicko - Nairobi, Kenya" footer are the
+      shared wrapper() - every template gets that automatically, you
+      don't manage it per-template.
+    - The section marked BODY START / BODY END further down is what's
+      actually editable per-template, either by editing
+      FALLBACK_TEMPLATES.booking_confirmed in email.service.ts, or live
+      via Admin dashboard -> Settings -> Email templates (which edits the
+      same double-curly-brace placeholder HTML, stored in the
+      email_templates table).
+    - The name / venueName / when / amount placeholders that template
+      already uses are filled in below with the same sample values the
+      admin preview uses (see SAMPLE_VARS.booking_confirmed: "Glenn" /
+      "Test Turf" / "Sat, Aug 22, 6:00-7:00 PM" / "2,000"), so this
+      renders as a real preview instead of showing literal placeholder
+      text. Swap the filled-in text back to placeholders before pasting
+      this into the admin editor or FALLBACK_TEMPLATES.
+    - The button and receipt-style amount row are new - the current
+      live template is just two paragraph tags with no visual structure.
+
+  If you like this direction, tell me and I'll either (a) paste the body
+  into the admin editor for this one template, or (b) upgrade the shared
+  wrapper() so every template gets this same look at once.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="light only" />
+<meta name="supported-color-schemes" content="light only" />
+<title>Booking confirmed &mdash; Kicko</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--[if mso]>
+<style>
+  table {border-collapse: collapse;}
+  .fallback-font { font-family: Georgia, 'Times New Roman', serif !important; }
+</style>
+<![endif]-->
+<style>
+  /* Progressive enhancement only - every rule that matters is also inline below,
+     so this still looks right in clients that strip <style> blocks. */
+  body { margin: 0; padding: 0; background-color: #F7F4EF; }
+  img { border: 0; outline: none; text-decoration: none; }
+  a { text-decoration: none; }
+
+  @media screen and (max-width: 480px) {
+    .email-container { width: 100% !important; }
+    .email-padding { padding-left: 20px !important; padding-right: 20px !important; }
+    .stack-cell { display: block !important; width: 100% !important; text-align: left !important; }
+    .amount-cell { text-align: left !important; padding-top: 4px !important; }
+  }
+</style>
+</head>
+<body style="margin:0; padding:0; background-color:#F7F4EF;">
+
+  <!-- Preheader (hidden preview text in the inbox list) -->
+  <div style="display:none; max-height:0; overflow:hidden; opacity:0;">
+    Your slot at Test Turf is booked for Sat, Aug 22 &middot; 6:00&ndash;7:00 PM.
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F7F4EF;">
+    <tr>
+      <td align="center" style="padding: 32px 16px;">
+
+        <table role="presentation" class="email-container" width="560" cellpadding="0" cellspacing="0" border="0" style="width:560px; max-width:560px;">
+
+          <!-- ===== Banner ===== -->
+          <tr>
+            <td class="email-padding" style="padding: 0 8px 20px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="font-family: 'Fraunces', Georgia, 'Times New Roman', serif; font-weight: 700; font-size: 22px; color: #1E2126;">
+                    Kick<span style="color:#C08A3E;">o</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- ===== Card ===== -->
+          <tr>
+            <td style="background-color:#FFFFFF; border:1px solid rgba(30,33,38,0.12); border-radius:16px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+
+                <!-- Status pill -->
+                <tr>
+                  <td class="email-padding" style="padding: 32px 36px 0;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td style="background-color:rgba(60,122,92,0.12); border-radius:999px; padding:6px 14px;">
+                          <span style="font-family:'Inter',Arial,sans-serif; font-weight:700; font-size:11px; letter-spacing:0.6px; text-transform:uppercase; color:#3C7A5C;">
+                            &#10003; Booking confirmed
+                          </span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- BODY START -->
+                <tr>
+                  <td class="email-padding" style="padding: 18px 36px 0;">
+                    <h1 style="margin:0 0 6px; font-family:'Fraunces',Georgia,'Times New Roman',serif; font-weight:700; font-size:26px; line-height:1.25; color:#1E2126;">
+                      You're on the pitch, Glenn.
+                    </h1>
+                    <p style="margin:0 0 24px; font-family:'Inter',Arial,sans-serif; font-size:14.5px; line-height:1.6; color:#5A5F66;">
+                      Your slot at <strong style="color:#1E2126;">Test Turf</strong> is booked for <strong style="color:#1E2126;">Sat, Aug 22 &middot; 6:00&ndash;7:00 PM</strong>.
+                    </p>
+                  </td>
+                </tr>
+
+                <!-- Receipt row -->
+                <tr>
+                  <td class="email-padding" style="padding: 0 36px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F7F4EF; border-radius:12px;">
+                      <tr>
+                        <td style="padding:16px 20px;">
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                              <td class="stack-cell" style="font-family:'Inter',Arial,sans-serif; font-size:13px; color:#5A5F66;">Venue</td>
+                              <td class="stack-cell amount-cell" align="right" style="font-family:'Inter',Arial,sans-serif; font-size:13px; font-weight:600; color:#1E2126;">Test Turf</td>
+                            </tr>
+                            <tr><td colspan="2" style="height:8px; line-height:8px; font-size:0;">&nbsp;</td></tr>
+                            <tr>
+                              <td class="stack-cell" style="font-family:'Inter',Arial,sans-serif; font-size:13px; color:#5A5F66;">When</td>
+                              <td class="stack-cell amount-cell" align="right" style="font-family:'Inter',Arial,sans-serif; font-size:13px; font-weight:600; color:#1E2126;">Sat, Aug 22 &middot; 6:00&ndash;7:00 PM</td>
+                            </tr>
+                            <tr><td colspan="2" style="height:12px; line-height:12px; font-size:0;">&nbsp;</td></tr>
+                            <tr><td colspan="2" style="border-top:1px solid rgba(30,33,38,0.12); font-size:0; line-height:0;">&nbsp;</td></tr>
+                            <tr><td colspan="2" style="height:12px; line-height:12px; font-size:0;">&nbsp;</td></tr>
+                            <tr>
+                              <td class="stack-cell" style="font-family:'Inter',Arial,sans-serif; font-size:14px; font-weight:700; color:#1E2126;">Amount paid</td>
+                              <td class="stack-cell amount-cell" align="right" style="font-family:'Fraunces',Georgia,'Times New Roman',serif; font-size:19px; font-weight:700; color:#C08A3E;">KES 2,000</td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <!-- BODY END -->
+
+                <!-- CTA button -->
+                <tr>
+                  <td class="email-padding" style="padding: 24px 36px 0;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td style="background-color:#C08A3E; border-radius:10px;">
+                          <a href="https://kicko-app.co.ke/player/bookings" style="display:inline-block; padding:13px 26px; font-family:'Inter',Arial,sans-serif; font-weight:700; font-size:14px; color:#1E2126;">
+                            View your booking &rarr;
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td class="email-padding" style="padding: 20px 36px 32px;">
+                    <p style="margin:0; font-family:'Inter',Arial,sans-serif; font-size:12.5px; line-height:1.6; color:#5A5F66;">
+                      Need to change something? You can cancel from your Kicko dashboard up until kickoff, subject to the venue's refund window.
+                    </p>
+                  </td>
+                </tr>
+
+              </table>
+            </td>
+          </tr>
+
+          <!-- ===== Footer ===== -->
+          <tr>
+            <td align="center" style="padding: 24px 8px 0;">
+              <p style="margin:0; font-family:'Inter',Arial,sans-serif; font-size:12px; color:#8A8F98;">
+                Kicko &middot; Nairobi, Kenya
+              </p>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>

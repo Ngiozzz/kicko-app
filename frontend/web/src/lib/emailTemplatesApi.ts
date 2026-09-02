@@ -16,6 +16,10 @@ export type EmailTemplate = {
   key: EmailTemplateKey;
   subject: string;
   html: string;
+  // When false, this template's HTML is sent as-is — no Kicko banner
+  // image or footer line wrapped around it. Lets a fully custom,
+  // self-contained uploaded design render untouched.
+  useWrapper: boolean;
   updated_at: string | null;
   isDefault: boolean;
   vars: string[];
@@ -36,10 +40,10 @@ export const EMAIL_TEMPLATE_LABELS: Record<EmailTemplateKey, string> = {
 
 export const emailTemplatesApi = {
   list: () => apiFetch<{ templates: EmailTemplate[] }>('/api/admin/email-templates'),
-  update: (key: EmailTemplateKey, subject: string, html: string) =>
+  update: (key: EmailTemplateKey, subject: string, html: string, useWrapper: boolean) =>
     apiFetch<{ template: EmailTemplate }>(`/api/admin/email-templates/${key}`, {
       method: 'PATCH',
-      body: JSON.stringify({ subject, html }),
+      body: JSON.stringify({ subject, html, useWrapper }),
     }),
   reset: (key: EmailTemplateKey) =>
     apiFetch<{ template: EmailTemplate }>(`/api/admin/email-templates/${key}`, { method: 'DELETE' }),
@@ -47,7 +51,7 @@ export const emailTemplatesApi = {
   // server-side if omitted) — lets "send test" work before the admin has
   // saved their edits. `to` defaults server-side to the admin's own
   // account email when omitted.
-  sendTest: (key: EmailTemplateKey, draft: { subject: string; html: string }, to?: string) =>
+  sendTest: (key: EmailTemplateKey, draft: { subject: string; html: string; useWrapper: boolean }, to?: string) =>
     apiFetch<{ sentTo: string }>(`/api/admin/email-templates/${key}/send-test`, {
       method: 'POST',
       body: JSON.stringify({ ...draft, to }),
@@ -56,9 +60,9 @@ export const emailTemplatesApi = {
   // uses, with sample data filled in — powers the editor's live preview
   // pane, so what's shown always matches what saving/sending would
   // actually produce.
-  previewDraft: (key: EmailTemplateKey, subject: string, html: string) =>
+  previewDraft: (key: EmailTemplateKey, subject: string, html: string, useWrapper: boolean) =>
     apiFetch<{ subject: string; html: string }>(`/api/admin/email-templates/${key}/preview-draft`, {
       method: 'POST',
-      body: JSON.stringify({ subject, html }),
+      body: JSON.stringify({ subject, html, useWrapper }),
     }),
 };
