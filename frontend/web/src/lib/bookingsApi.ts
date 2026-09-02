@@ -16,6 +16,9 @@ export type Booking = {
   service_fee: number;
   total_amount: number;
   is_walk_in: boolean;
+  // Only meaningful for booking_type 'individual' — same free-text
+  // convention as match_sessions.format (rugby's sevens/15s/touch).
+  format: string | null;
   status: BookingStatus;
   payment_status: PaymentStatus;
   payment_deadline: string | null;
@@ -75,7 +78,7 @@ export const bookingsApi = {
       can_claim_open_slot?: boolean;
     }>(`/api/bookings/${id}`),
   open: () => apiFetch<{ bookings: OpenBookingSummary[] }>('/api/bookings/open'),
-  create: (input: { venue_id: string; start_at: string; end_at: string; phone_number: string }) =>
+  create: (input: { venue_id: string; start_at: string; end_at: string; phone_number: string; format?: string }) =>
     apiFetch<{ booking: Booking; payment: Payment }>('/api/bookings', { method: 'POST', body: JSON.stringify(input) }),
   // A partner_phones entry of null leaves that slot open for anyone to claim
   // instead of naming a specific player.

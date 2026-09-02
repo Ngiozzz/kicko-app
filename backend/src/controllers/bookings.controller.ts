@@ -144,9 +144,12 @@ export async function createBooking(req: Request, res: Response) {
     return res.status(403).json({ error: "Only players can book venues." });
   }
 
-  const { venue_id, start_at, end_at, phone_number } = req.body;
+  const { venue_id, start_at, end_at, phone_number, format } = req.body;
   if (typeof venue_id !== "string" || typeof start_at !== "string" || typeof end_at !== "string" || typeof phone_number !== "string" || !phone_number.trim()) {
     return res.status(400).json({ error: "venue_id, start_at, end_at, and phone_number are required." });
+  }
+  if (format !== undefined && format !== null && typeof format !== "string") {
+    return res.status(400).json({ error: "format must be a string." });
   }
 
   const start = new Date(start_at);
@@ -181,6 +184,7 @@ export async function createBooking(req: Request, res: Response) {
       service_fee: serviceFee,
       total_amount: subtotal + serviceFee,
       is_walk_in: isWalkIn,
+      format: format ?? null,
     })
     .select(BOOKING_SELECT)
     .single();

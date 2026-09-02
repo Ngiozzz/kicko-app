@@ -142,7 +142,9 @@ export default function PlayerBookings() {
               ? b.player_id === userId
                 ? 'Organized by you'
                 : 'Invited to split this booking'
-              : undefined,
+              : b.format
+                ? getSportContent(b.venue.sport).sessionFormats.find((f) => f.key === b.format)?.label ?? b.format
+                : undefined,
         badge: bookingBadge(b),
         filterBucket: bookingBucket(b),
         bookingId: b.booking_type === 'individual' && (b.status === 'pending_payment' || b.status === 'confirmed') ? b.id : undefined,

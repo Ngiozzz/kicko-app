@@ -4,6 +4,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, fonts, radius } from '@kicko/shared';
 import { bookingsApi, paymentsApi, Booking, BookingParticipant, Payment } from '../../../src/lib/bookingsApi';
 import { SportIcon, Sport } from '../../../src/components/SportIcon';
+import { getSportContent } from '../../../src/content/sportContent';
 import { useBreadcrumb } from '../../../src/lib/breadcrumbContext';
 
 function statusBadge(b: Booking): { label: string; tone: 'good' | 'warn' | 'bad' } {
@@ -173,6 +174,11 @@ export default function BookingDetail() {
         <View style={styles.titleRow}>
           <SportIcon sport={booking.venue.sport as Sport} size={22} />
           <Text style={styles.title}>{booking.venue.name}</Text>
+          {booking.format && (
+            <Text style={styles.formatTag}>
+              {getSportContent(booking.venue.sport).sessionFormats.find((f) => f.key === booking.format)?.label ?? booking.format}
+            </Text>
+          )}
         </View>
         <Text style={styles.subtitle}>{booking.venue.location}</Text>
         <Text style={styles.subtitle}>
@@ -308,6 +314,17 @@ const styles = StyleSheet.create({
 
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 },
   title: { fontFamily: fonts.serif, fontSize: 26, color: colors.text },
+  formatTag: {
+    fontFamily: fonts.sansBold,
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    color: colors.accent,
+    backgroundColor: colors.accentSoft,
+    paddingVertical: 4,
+    paddingHorizontal: 9,
+    borderRadius: radius.pill,
+  },
   subtitle: { fontFamily: fonts.sans, fontSize: 13.5, color: colors.textSoft, marginBottom: 4 },
 
   reasonBox: {

@@ -188,6 +188,7 @@ export default function ExploreVenueDetail() {
         start_at: selectionRange.start.toISOString(),
         end_at: selectionRange.end.toISOString(),
         phone_number: phone.trim(),
+        format: sessionFormat ?? undefined,
       });
       setBooking(booking);
       setPayment(payment);
@@ -430,6 +431,32 @@ export default function ExploreVenueDetail() {
 
             {mode === 'solo' ? (
               <>
+                {sportContent.sessionFormats.length > 0 && (
+                  <>
+                    <Text style={styles.fieldLabel}>Game type</Text>
+                    <View style={styles.formatList}>
+                      {sportContent.sessionFormats.map((f) => {
+                        const active = sessionFormat === f.key;
+                        return (
+                          <Pressable
+                            key={f.key}
+                            onPress={() => setSessionFormat(f.key)}
+                            style={[styles.formatCard, active && styles.formatCardActive]}
+                          >
+                            <View style={styles.formatCardText}>
+                              <Text style={[styles.formatCardLabel, active && styles.formatCardLabelActive]}>{f.label}</Text>
+                              <Text style={styles.formatCardDesc}>{f.description}</Text>
+                            </View>
+                            <View style={[styles.formatRadio, active && styles.formatRadioActive]}>
+                              {active && <View style={styles.formatRadioDot} />}
+                            </View>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </>
+                )}
+
                 <Text style={styles.fieldLabel}>M-Pesa phone number</Text>
                 <TextInput
                   value={phone}
