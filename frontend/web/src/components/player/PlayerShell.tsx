@@ -22,7 +22,9 @@ const ACTIVITY_ITEMS: NavItem[] = [
   { label: 'Bookings', href: '/player/bookings', icon: BookingsIcon },
   { label: 'Open Sessions', href: '/player/sessions', icon: OpenSessionsIcon },
   { label: 'Teams', href: '/player/teams', icon: ManagersIcon },
-  { label: 'Tournaments', href: '/player/tournaments', icon: TournamentIcon },
+  // Tournaments hidden from nav — MVP paused pending a fuller rebuild, see
+  // backend/src/routes/tournaments.routes.ts's TOURNAMENTS_ENABLED gate.
+  // { label: 'Tournaments', href: '/player/tournaments', icon: TournamentIcon },
 ];
 
 type Crumb = { label: string; href?: string };

@@ -16,6 +16,18 @@ import {
 
 const router = Router();
 
+// Tournaments is fully built but deliberately hidden from production while
+// it's still an MVP (no refunds for a paid withdrawal, no min/max team
+// count, no auto-brackets — see the design-review handoff). Flip this back
+// to true once the fuller module replaces/extends it; nothing else needs
+// to change — the routes, controller, and frontend pages are all still
+// intact underneath this gate.
+const TOURNAMENTS_ENABLED = false;
+
+if (!TOURNAMENTS_ENABLED) {
+  router.use((_req, res) => res.status(404).json({ error: "Not found." }));
+}
+
 router.use(requireAuth);
 
 router.post("/", createTournament);

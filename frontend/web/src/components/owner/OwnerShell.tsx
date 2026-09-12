@@ -18,7 +18,9 @@ const OVERVIEW_ITEMS: NavItem[] = [
   { label: 'Home', href: '/owner', icon: HomeIcon },
   { label: 'Venues', href: '/owner/venues', icon: VenuesIcon },
   { label: 'Bookings', href: '/owner/bookings', icon: BookingsIcon },
-  { label: 'Tournaments', href: '/owner/tournaments', icon: TournamentIcon },
+  // Tournaments hidden from nav — MVP paused pending a fuller rebuild, see
+  // backend/src/routes/tournaments.routes.ts's TOURNAMENTS_ENABLED gate.
+  // { label: 'Tournaments', href: '/owner/tournaments', icon: TournamentIcon },
   { label: 'Payments', href: '/owner/payments', icon: PaymentsIcon },
 ];
 const TEAM_ITEMS: NavItem[] = [{ label: 'Managers', href: '/owner/managers', icon: ManagersIcon }];
