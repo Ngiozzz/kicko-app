@@ -76,7 +76,8 @@ export type EmailTemplateKey =
   | "session_cancelled"
   | "payout_details_missing"
   | "tournament_withdrawal"
-  | "venue_submitted";
+  | "venue_submitted"
+  | "resplit_topup_owed";
 
 // Only "commentBlock" ever carries caller-built HTML (the review-comment
 // paragraph, already escaped by its caller) — every other placeholder is
@@ -158,6 +159,10 @@ export const FALLBACK_TEMPLATES: Record<EmailTemplateKey, { subject: string; htm
     subject: "New venue awaiting review",
     html: '<h2 style="margin:0 0 12px;">New venue submitted</h2><p><strong>{{venueName}}</strong> was submitted by <strong>{{ownerName}}</strong> and is awaiting review.</p><p>{{location}}</p>',
   },
+  resplit_topup_owed: {
+    subject: "Your share has changed",
+    html: '<h2 style="margin:0 0 12px;">Your share just went up</h2><p>Hi {{name}},</p><p>Some players in your session at <strong>{{venueName}}</strong> didn\'t confirm in time, so the cost has been split across a smaller group.</p><p>Top-up owed: <strong>{{topUpAmount}}</strong></p>',
+  },
 };
 
 /** Sample values for every placeholder any template key uses — powers the admin "send test" and preview actions. */
@@ -199,6 +204,7 @@ export const SAMPLE_VARS: Record<EmailTemplateKey, Record<string, string>> = {
     reviewUrl: `${FRONTEND_URL}/admin-dashboard/venues/00000000-0000-0000-0000-000000000000`,
     manageNotificationsUrl: `${FRONTEND_URL}/admin-dashboard/settings`,
   },
+  resplit_topup_owed: { name: "Glenn", venueName: "Test Turf", when: "Sat, Aug 22 · 6:00 PM", topUpAmount: "KES 350", topUpUrl: SAMPLE_URL, manageNotificationsUrl: SAMPLE_NOTIFS },
 };
 
 /**

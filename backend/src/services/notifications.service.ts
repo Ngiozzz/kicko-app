@@ -15,7 +15,8 @@ export type NotificationType =
   | "session_cancelled"
   | "payout_details_missing"
   | "tournament_withdrawal"
-  | "venue_submitted";
+  | "venue_submitted"
+  | "resplit_topup_owed";
 
 /**
  * Inserts one notification row. Called directly from whatever controller

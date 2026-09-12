@@ -17,7 +17,8 @@ export type EmailTemplateKey =
   | 'session_cancelled'
   | 'payout_details_missing'
   | 'tournament_withdrawal'
-  | 'venue_submitted';
+  | 'venue_submitted'
+  | 'resplit_topup_owed';
 
 export type EmailTemplate = {
   key: EmailTemplateKey;
@@ -50,6 +51,7 @@ export const EMAIL_TEMPLATE_LABELS: Record<EmailTemplateKey, string> = {
   payout_details_missing: 'Payout on hold — no payout details',
   tournament_withdrawal: 'Team withdrew (organizer)',
   venue_submitted: 'New venue awaiting review (admin)',
+  resplit_topup_owed: 'Share changed — top-up owed (resplit)',
 };
 
 export const emailTemplatesApi = {

@@ -886,6 +886,32 @@ export async function resplitSession(req: Request, res: Response) {
     .single();
   if (updateError || !updated) return res.status(409).json({ error: "Could not resplit — try again." });
 
+  const settings = await getPlatformSettings();
+  const { perPersonShare } = getCurrentTarget(updated, participants ?? [], settings);
+  const when = new Date(updated.start_at).toLocaleString("en-KE", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+  for (const p of participants ?? []) {
+    if (!p.paid || p.status === "removed" || !p.user) continue;
+    const owed = Math.max(+(perPersonShare - p.paid_amount).toFixed(2), 0);
+    if (owed <= 0) continue;
+    await notify({
+      userId: p.user.id,
+      type: "resplit_topup_owed",
+      title: "Your share just went up",
+      body: `${updated.venue.name} · top-up owed: KES ${owed.toLocaleString()}`,
+      link: `/player/sessions/${updated.id}`,
+    });
+    if (p.user.email) {
+      await sendTemplatedEmail("resplit_topup_owed", p.user.email, {
+        name: p.user.name,
+        venueName: updated.venue.name,
+        when,
+        topUpAmount: `KES ${owed.toLocaleString()}`,
+        topUpUrl: `${FRONTEND_URL}/player/sessions/${updated.id}`,
+        manageNotificationsUrl: `${FRONTEND_URL}/player/settings`,
+      });
+    }
+  }
+
   res.status(200).json({ session: updated });
 }
 
