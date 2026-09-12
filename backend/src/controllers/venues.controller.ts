@@ -1,11 +1,19 @@
 import type { Request, Response } from "express";
 import { supabase } from "../config/supabase.js";
 import { notify } from "../services/notifications.service.js";
-import { sendTemplatedEmail } from "../services/email.service.js";
+import { sendTemplatedEmail, FRONTEND_URL } from "../services/email.service.js";
 
 const SPORTS = ["football", "basketball", "tennis", "padel", "volleyball"];
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const PAYOUT_TYPES = ["phone", "paybill", "till"];
+
+// Mirrors the admin venue-review page's own fmtTime (24h "HH:MM" -> "6:00 AM").
+function fmtTime(t: string): string {
+  const [h, m] = t.split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${period}`;
+}
 
 function validateVenueInput(body: Record<string, unknown>) {
   const errors: Record<string, string> = {};
@@ -210,7 +218,24 @@ export async function createVenue(req: Request, res: Response) {
       link: `/admin-dashboard/venues/${data.id}`,
     });
     if (admin.email) {
-      await sendTemplatedEmail("venue_submitted", admin.email, { venueName: data.name, ownerName: req.user!.name, location: data.location });
+      await sendTemplatedEmail("venue_submitted", admin.email, {
+        venueName: data.name,
+        ownerName: req.user!.name,
+        ownerEmail: req.user!.email ?? "",
+        ownerPhone: req.user!.phone ?? "",
+        location: data.location,
+        sport: data.sport,
+        hoursLine: `${fmtTime(data.opening_time)} – ${fmtTime(data.closing_time)}`,
+        pricingLine: `KES ${Number(data.price_peak).toLocaleString()} / ${Number(data.price_off_peak).toLocaleString()}`,
+        submittedAt: new Date(data.created_at).toLocaleDateString("en-KE", { day: "numeric", month: "short", year: "numeric" }),
+        amenitiesText: (data.amenities as string[]).length > 0 ? (data.amenities as string[]).join(", ") : "None listed",
+        photoCount: String((data.photos as string[]).length),
+        photoUrl1: (data.photos as string[])[0] ?? "",
+        photoUrl2: (data.photos as string[])[1] ?? "",
+        photoUrl3: (data.photos as string[])[2] ?? "",
+        reviewUrl: `${FRONTEND_URL}/admin-dashboard/venues/${data.id}`,
+        manageNotificationsUrl: `${FRONTEND_URL}/admin-dashboard/settings`,
+      });
     }
   }
 

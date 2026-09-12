@@ -4,6 +4,16 @@ import { supabase } from "../config/supabase.js";
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const FROM = process.env.EMAIL_FROM ?? "Kicko <no-reply@kicko-app.co.ke>";
 
+// Shared by every controller/job that needs to build a deep link into the
+// app for an email (booking pages, dashboards, etc.) — one place to change
+// for local/staging vs production instead of each call site hardcoding it.
+export const FRONTEND_URL = process.env.FRONTEND_URL ?? "https://kicko-app.co.ke";
+
+// Every designed template's footer links here — real inbox, not a support
+// page (none exists yet). Injected automatically below so no caller needs
+// to pass it.
+export const SUPPORT_EMAIL_URL = "mailto:info@kicko-app.co.ke";
+
 /**
  * Sends via Resend when RESEND_API_KEY is set; otherwise logs to the
  * console so local dev and CI never need a real key. Unlike stk/b2c's
@@ -82,7 +92,7 @@ const RAW_VARS = new Set(["commentBlock"]);
 export const FALLBACK_TEMPLATES: Record<EmailTemplateKey, { subject: string; html: string }> = {
   booking_confirmed: {
     subject: "Booking confirmed",
-    html: '<h2 style="margin:0 0 12px;">Booking confirmed</h2><p>Hi {{name}},</p><p>Your slot at <strong>{{venueName}}</strong> is booked for <strong>{{when}}</strong>.</p><p>Amount paid: <strong>KES {{amount}}</strong></p>',
+    html: '<h2 style="margin:0 0 12px;">Booking confirmed</h2><p>Hi {{name}},</p><p>Your slot at <strong>{{venueName}}</strong> is booked for <strong>{{when}}</strong>.</p><p>Amount paid: <strong>{{amount}}</strong></p>',
   },
   booking_cancelled: {
     subject: "Booking cancelled",
@@ -90,15 +100,15 @@ export const FALLBACK_TEMPLATES: Record<EmailTemplateKey, { subject: string; htm
   },
   new_booking: {
     subject: "New booking",
-    html: '<h2 style="margin:0 0 12px;">New booking</h2><p><strong>{{venueName}}</strong> · {{when}}</p><p>Amount: <strong>KES {{amount}}</strong></p>',
+    html: '<h2 style="margin:0 0 12px;">New booking</h2><p><strong>{{venueName}}</strong> · {{when}}</p><p>Amount: <strong>{{amount}}</strong></p>',
   },
   payout_paid: {
     subject: "Payout sent",
-    html: '<h2 style="margin:0 0 12px;">Payout sent</h2><p><strong>KES {{amount}}</strong> for <strong>{{venueName}}</strong> is on its way to your M-Pesa.</p>',
+    html: '<h2 style="margin:0 0 12px;">Payout sent</h2><p><strong>{{amount}}</strong> for <strong>{{venueName}}</strong> is on its way to your M-Pesa.</p>',
   },
   payout_failed: {
     subject: "Payout failed",
-    html: '<h2 style="margin:0 0 12px;">Payout failed</h2><p><strong>KES {{amount}}</strong> for <strong>{{venueName}}</strong> could not be sent: {{reason}}</p><p>Check your payout details in the Kicko dashboard.</p>',
+    html: '<h2 style="margin:0 0 12px;">Payout failed</h2><p><strong>{{amount}}</strong> for <strong>{{venueName}}</strong> could not be sent: {{reason}}</p><p>Check your payout details in the Kicko dashboard.</p>',
   },
   venue_verified: {
     subject: "Venue verified",
@@ -122,7 +132,7 @@ export const FALLBACK_TEMPLATES: Record<EmailTemplateKey, { subject: string; htm
   },
   split_booking_invite: {
     subject: "You've been invited to split a booking",
-    html: '<h2 style="margin:0 0 12px;">You\'re invited to play</h2><p><strong>{{inviterName}}</strong> invited you to split a booking at <strong>{{venueName}}</strong> on <strong>{{when}}</strong>.</p><p>Your share: <strong>KES {{shareAmount}}</strong></p>',
+    html: '<h2 style="margin:0 0 12px;">You\'re invited to play</h2><p><strong>{{inviterName}}</strong> invited you to split a booking at <strong>{{venueName}}</strong> on <strong>{{when}}</strong>.</p><p>Your share: <strong>{{shareAmount}}</strong></p>',
   },
   team_invite: {
     subject: "You've been invited to join a team",
@@ -138,7 +148,7 @@ export const FALLBACK_TEMPLATES: Record<EmailTemplateKey, { subject: string; htm
   },
   payout_details_missing: {
     subject: "We can't pay you out yet",
-    html: '<h2 style="margin:0 0 12px;">Payout on hold</h2><p><strong>KES {{amount}}</strong> for <strong>{{venueName}}</strong> is ready to send, but this venue has no payout details on file.</p><p>Add your M-Pesa payout details in the Kicko dashboard to receive it.</p>',
+    html: '<h2 style="margin:0 0 12px;">Payout on hold</h2><p><strong>{{amount}}</strong> for <strong>{{venueName}}</strong> is ready to send, but this venue has no payout details on file.</p><p>Add your M-Pesa payout details in the Kicko dashboard to receive it.</p>',
   },
   tournament_withdrawal: {
     subject: "A team has withdrawn",
@@ -151,24 +161,44 @@ export const FALLBACK_TEMPLATES: Record<EmailTemplateKey, { subject: string; htm
 };
 
 /** Sample values for every placeholder any template key uses — powers the admin "send test" and preview actions. */
+const SAMPLE_URL = `${FRONTEND_URL}/player/bookings/00000000-0000-0000-0000-000000000000`;
+const SAMPLE_NOTIFS = `${FRONTEND_URL}/player/settings`;
+
 export const SAMPLE_VARS: Record<EmailTemplateKey, Record<string, string>> = {
-  booking_confirmed: { name: "Glenn", venueName: "Test Turf", when: "Sat, Aug 22 · 6:00–7:00 PM", amount: "2,000" },
-  booking_cancelled: { venueName: "Test Turf", refundLine: "A full refund of KES 2,000 has been issued." },
-  new_booking: { venueName: "Test Turf", when: "Sat, Aug 22 · 6:00–7:00 PM", amount: "2,000" },
-  payout_paid: { venueName: "Test Turf", amount: "1,800" },
-  payout_failed: { venueName: "Test Turf", amount: "1,800", reason: "Invalid M-Pesa number on file" },
-  venue_verified: { venueName: "Test Turf" },
-  venue_suspended: { venueName: "Test Turf", reason: "Repeated no-shows reported by players" },
-  new_review: { venueName: "Test Turf", stars: "★★★★☆", commentBlock: '<p>"Great pitch, would book again!"</p>' },
-  game_reminder: { name: "Glenn", venueName: "Test Turf", when: "Sat, Aug 22 · 6:00 PM" },
-  review_request: { name: "Glenn", venueName: "Test Turf", reviewUrl: "https://kicko-app.co.ke/player/explore/00000000-0000-0000-0000-000000000000" },
-  split_booking_invite: { inviterName: "Glenn", venueName: "Test Turf", when: "Sat, Aug 22 · 6:00–7:00 PM", shareAmount: "500" },
-  team_invite: { inviterName: "Glenn", teamName: "Mombasa Sharks", sportLine: " · Rugby" },
-  fixture_scheduled: { teamName: "Mombasa Sharks", opponentName: "Nairobi Lions", tournamentName: "Coast Cup", venueName: "Test Turf", when: "Sat, Aug 22 · 6:00 PM" },
-  session_cancelled: { venueName: "Test Turf", refundLine: "A full refund of KES 2,000 has been issued." },
-  payout_details_missing: { venueName: "Test Turf", amount: "1,800" },
-  tournament_withdrawal: { teamName: "Mombasa Sharks", tournamentName: "Coast Cup" },
-  venue_submitted: { venueName: "Test Turf", ownerName: "Glenn", location: "Nairobi, Kenya" },
+  booking_confirmed: { name: "Glenn", venueName: "Test Turf", when: "Sat, Aug 22 · 6:00–7:00 PM", amount: "KES 2,000", organizerName: "Glenn", bookingUrl: SAMPLE_URL, manageNotificationsUrl: SAMPLE_NOTIFS },
+  booking_cancelled: { venueName: "Test Turf", refundLine: "A full refund of KES 2,000 has been issued.", organizerName: "Glenn", browseUrl: `${FRONTEND_URL}/player/explore`, manageNotificationsUrl: SAMPLE_NOTIFS },
+  new_booking: { venueName: "Test Turf", when: "Sat, Aug 22 · 6:00–7:00 PM", amount: "KES 2,000", dashboardUrl: `${FRONTEND_URL}/owner/payments`, manageNotificationsUrl: `${FRONTEND_URL}/owner/settings` },
+  payout_paid: { venueName: "Test Turf", amount: "KES 1,800", payoutHistoryUrl: `${FRONTEND_URL}/owner/payments`, manageNotificationsUrl: `${FRONTEND_URL}/owner/settings` },
+  payout_failed: { venueName: "Test Turf", amount: "KES 1,800", reason: "Invalid M-Pesa number on file", payoutSettingsUrl: `${FRONTEND_URL}/owner/venues/00000000-0000-0000-0000-000000000000/edit`, manageNotificationsUrl: `${FRONTEND_URL}/owner/settings` },
+  venue_verified: { venueName: "Test Turf", venuePageUrl: `${FRONTEND_URL}/owner/venues/00000000-0000-0000-0000-000000000000`, manageNotificationsUrl: `${FRONTEND_URL}/owner/settings` },
+  venue_suspended: { venueName: "Test Turf", reason: "Repeated no-shows reported by players", appealUrl: SUPPORT_EMAIL_URL, manageNotificationsUrl: `${FRONTEND_URL}/owner/settings` },
+  new_review: { venueName: "Test Turf", stars: "4", starsDisplay: "★★★★☆", commentBlock: '<p>"Great pitch, would book again!"</p>', reviewUrl: `${FRONTEND_URL}/owner/venues/00000000-0000-0000-0000-000000000000/reviews`, manageNotificationsUrl: `${FRONTEND_URL}/owner/settings` },
+  game_reminder: { name: "Glenn", venueName: "Test Turf", when: "Sat, Aug 22 · 6:00 PM", organizerName: "Glenn", directionsUrl: "https://www.google.com/maps/search/?api=1&query=Test+Turf", manageNotificationsUrl: SAMPLE_NOTIFS },
+  review_request: { name: "Glenn", venueName: "Test Turf", reviewUrl: "https://kicko-app.co.ke/player/explore/00000000-0000-0000-0000-000000000000", manageNotificationsUrl: SAMPLE_NOTIFS },
+  split_booking_invite: { inviterName: "Glenn", venueName: "Test Turf", when: "Sat, Aug 22 · 6:00–7:00 PM", shareAmount: "KES 500", acceptUrl: SAMPLE_URL, declineUrl: SAMPLE_URL, manageNotificationsUrl: SAMPLE_NOTIFS },
+  team_invite: { inviterName: "Glenn", teamName: "Mombasa Sharks", sportLine: " · Rugby", acceptUrl: `${FRONTEND_URL}/player/teams/00000000-0000-0000-0000-000000000000`, declineUrl: `${FRONTEND_URL}/player/teams/00000000-0000-0000-0000-000000000000`, manageNotificationsUrl: SAMPLE_NOTIFS },
+  fixture_scheduled: { teamName: "Mombasa Sharks", opponentName: "Nairobi Lions", tournamentName: "Coast Cup", venueName: "Test Turf", when: "Sat, Aug 22 · 6:00 PM", fixtureUrl: `${FRONTEND_URL}/player/tournaments/00000000-0000-0000-0000-000000000000`, manageNotificationsUrl: SAMPLE_NOTIFS },
+  session_cancelled: { venueName: "Test Turf", refundLine: "A full refund of KES 2,000 has been issued.", browseUrl: `${FRONTEND_URL}/player/explore`, manageNotificationsUrl: SAMPLE_NOTIFS },
+  payout_details_missing: { venueName: "Test Turf", amount: "KES 1,800", payoutSettingsUrl: `${FRONTEND_URL}/owner/venues/00000000-0000-0000-0000-000000000000/edit`, manageNotificationsUrl: `${FRONTEND_URL}/owner/settings` },
+  tournament_withdrawal: { teamName: "Mombasa Sharks", tournamentName: "Coast Cup", tournamentUrl: `${FRONTEND_URL}/owner/tournaments/00000000-0000-0000-0000-000000000000`, manageNotificationsUrl: `${FRONTEND_URL}/owner/settings` },
+  venue_submitted: {
+    venueName: "Test Turf",
+    ownerName: "Glenn",
+    ownerEmail: "glenn@example.com",
+    ownerPhone: "+254712345678",
+    location: "Nairobi, Kenya",
+    sport: "football",
+    hoursLine: "6:00 AM – 10:00 PM",
+    pricingLine: "KES 2,000 / 1,500",
+    submittedAt: "Sat, Aug 22, 2026",
+    amenitiesText: "Floodlights, Parking, Changing rooms",
+    photoCount: "3",
+    photoUrl1: "https://kicko-app.co.ke/favicon.png",
+    photoUrl2: "https://kicko-app.co.ke/favicon.png",
+    photoUrl3: "https://kicko-app.co.ke/favicon.png",
+    reviewUrl: `${FRONTEND_URL}/admin-dashboard/venues/00000000-0000-0000-0000-000000000000`,
+    manageNotificationsUrl: `${FRONTEND_URL}/admin-dashboard/settings`,
+  },
 };
 
 /**
@@ -194,7 +224,10 @@ export async function renderEmailTemplate(
       : { ...FALLBACK_TEMPLATES[key], useWrapper: true };
   }
 
-  const safeVars = Object.fromEntries(Object.entries(vars).map(([k, v]) => [k, RAW_VARS.has(k) ? v : escapeHtml(v)]));
+  // supportUrl is the same for every recipient, so every caller gets it for
+  // free — vars still wins if a caller ever needs to override it.
+  const allVars = { supportUrl: SUPPORT_EMAIL_URL, ...vars };
+  const safeVars = Object.fromEntries(Object.entries(allVars).map(([k, v]) => [k, RAW_VARS.has(k) ? v : escapeHtml(v)]));
   const body = renderPlaceholders(template.html, safeVars);
 
   return { subject: template.subject, html: template.useWrapper ? wrapper(body) : body };

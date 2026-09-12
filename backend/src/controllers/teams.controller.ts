@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { supabase } from "../config/supabase.js";
 import { notify } from "../services/notifications.service.js";
 import { sendSms } from "../services/sms.service.js";
-import { sendTemplatedEmail } from "../services/email.service.js";
+import { sendTemplatedEmail, FRONTEND_URL } from "../services/email.service.js";
 
 const TEAM_SELECT = "*";
 // Two FKs into users (user_id, invited_by) — must name the one we mean,
@@ -156,6 +156,9 @@ export async function inviteTeamMember(req: Request, res: Response) {
       inviterName: req.user!.name,
       teamName: team.name,
       sportLine: team.sport ? ` · ${team.sport}` : "",
+      acceptUrl: `${FRONTEND_URL}/player/teams/${team.id}`,
+      declineUrl: `${FRONTEND_URL}/player/teams/${team.id}`,
+      manageNotificationsUrl: `${FRONTEND_URL}/player/settings`,
     });
   }
 

@@ -4,7 +4,7 @@ import { supabase } from "../config/supabase.js";
 import { computeFeeInclusiveRefund, computeRefundPct, computeSessionSplit, wholeHoursBetween, MAX_BOOKING_HOURS } from "../services/pricing.service.js";
 import { getPlatformSettings, type PlatformSettings } from "../services/settings.service.js";
 import { initiateStkPush } from "../services/stk.service.js";
-import { sendTemplatedEmail } from "../services/email.service.js";
+import { sendTemplatedEmail, FRONTEND_URL } from "../services/email.service.js";
 import { notify } from "../services/notifications.service.js";
 
 const VENUE_COLUMNS = "id, name, location, sport, photos, price_peak, price_off_peak, owner_id, status";
@@ -132,7 +132,14 @@ export async function finalizeSessionCancellation(session: any, reason: string) 
   for (const p of participants ?? []) {
     if (!p.user || p.status !== "accepted") continue;
     await notify({ userId: p.user.id, type: "session_cancelled", title: "Session cancelled", body: `${updated.venue.name} — ${reason}`, link: `/player/sessions/${session.id}` });
-    if (p.user.email) await sendTemplatedEmail("session_cancelled", p.user.email, { venueName: updated.venue.name, refundLine: reason });
+    if (p.user.email) {
+      await sendTemplatedEmail("session_cancelled", p.user.email, {
+        venueName: updated.venue.name,
+        refundLine: reason,
+        browseUrl: `${FRONTEND_URL}/player/explore`,
+        manageNotificationsUrl: `${FRONTEND_URL}/player/settings`,
+      });
+    }
   }
 
   return updated;
@@ -226,7 +233,14 @@ export async function recomputeSessionFunding(sessionParticipantId: string) {
           name: p.user.name,
           venueName: updated.venue.name,
           when,
-          amount: (p.paid_amount ?? 0).toLocaleString(),
+          amount: `KES ${(p.paid_amount ?? 0).toLocaleString()}`,
+          organizerName: updated.organizer?.name ?? "the organizer",
+          // updated.id is the match_sessions row, not the bookings row
+          // materializeSessionBooking just inserted (whose id isn't
+          // returned) — the session page is the correct, existing route
+          // for this booking either way.
+          bookingUrl: `${FRONTEND_URL}/player/sessions/${updated.id}`,
+          manageNotificationsUrl: `${FRONTEND_URL}/player/settings`,
         });
       }
 

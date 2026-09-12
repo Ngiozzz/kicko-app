@@ -1,7 +1,7 @@
 import { supabase } from "../config/supabase.js";
 import { initiateB2CPayout } from "../services/b2c.service.js";
 import { notify } from "../services/notifications.service.js";
-import { sendTemplatedEmail } from "../services/email.service.js";
+import { sendTemplatedEmail, FRONTEND_URL } from "../services/email.service.js";
 import { sendSms } from "../services/sms.service.js";
 
 const CHECK_INTERVAL_MS = 60_000;
@@ -10,6 +10,7 @@ type DuePayout = {
   id: string;
   amount: number;
   owner_id: string;
+  venue_id: string;
   payout_details_reminder_sent_at: string | null;
   booking: { end_at: string } | null;
   session: { end_at: string } | null;
@@ -29,7 +30,7 @@ async function resolveDuePayouts() {
   const { data: due, error } = await supabase
     .from("payouts")
     .select(
-      "id, amount, owner_id, payout_details_reminder_sent_at, booking:bookings(end_at), session:match_sessions(end_at), venue:venues(name, payout_type, payout_number, payout_account_ref), owner:users!payouts_owner_id_fkey(email, phone)"
+      "id, amount, owner_id, venue_id, payout_details_reminder_sent_at, booking:bookings(end_at), session:match_sessions(end_at), venue:venues(name, payout_type, payout_number, payout_account_ref), owner:users!payouts_owner_id_fkey(email, phone)"
     )
     .eq("status", "pending")
     .returns<DuePayout[]>();
@@ -57,7 +58,9 @@ async function resolveDuePayouts() {
         if (payout.owner?.email) {
           await sendTemplatedEmail("payout_details_missing", payout.owner.email, {
             venueName: venue?.name ?? "your venue",
-            amount: payout.amount.toLocaleString(),
+            amount: `KES ${payout.amount.toLocaleString()}`,
+            payoutSettingsUrl: `${FRONTEND_URL}/owner/venues/${payout.venue_id}/edit`,
+            manageNotificationsUrl: `${FRONTEND_URL}/owner/settings`,
           });
         }
         await supabase.from("payouts").update({ payout_details_reminder_sent_at: new Date().toISOString() }).eq("id", payout.id);
@@ -105,9 +108,20 @@ async function resolveDuePayouts() {
       const owner = payout.owner;
       if (owner?.email) {
         if (result.status === "success") {
-          await sendTemplatedEmail("payout_paid", owner.email, { venueName, amount: payout.amount.toLocaleString() });
+          await sendTemplatedEmail("payout_paid", owner.email, {
+            venueName,
+            amount: `KES ${payout.amount.toLocaleString()}`,
+            payoutHistoryUrl: `${FRONTEND_URL}/owner/payments`,
+            manageNotificationsUrl: `${FRONTEND_URL}/owner/settings`,
+          });
         } else {
-          await sendTemplatedEmail("payout_failed", owner.email, { venueName, amount: payout.amount.toLocaleString(), reason: failureReason });
+          await sendTemplatedEmail("payout_failed", owner.email, {
+            venueName,
+            amount: `KES ${payout.amount.toLocaleString()}`,
+            reason: failureReason,
+            payoutSettingsUrl: `${FRONTEND_URL}/owner/venues/${payout.venue_id}/edit`,
+            manageNotificationsUrl: `${FRONTEND_URL}/owner/settings`,
+          });
         }
       }
       if (owner?.phone) {

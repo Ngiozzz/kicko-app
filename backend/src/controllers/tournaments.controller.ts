@@ -4,7 +4,7 @@ import { computeServiceFee } from "../services/pricing.service.js";
 import { getPlatformSettings } from "../services/settings.service.js";
 import { initiateStkPush } from "../services/stk.service.js";
 import { notify } from "../services/notifications.service.js";
-import { sendTemplatedEmail } from "../services/email.service.js";
+import { sendTemplatedEmail, FRONTEND_URL } from "../services/email.service.js";
 
 const VENUE_COLUMNS = "id, name, location, sport, photos, price_peak, price_off_peak, owner_id, status";
 const TOURNAMENT_SELECT = `*, venue:venues(${VENUE_COLUMNS})`;
@@ -56,6 +56,8 @@ async function notifyFixtureScheduled(
         tournamentName: tournament.name,
         venueName,
         when,
+        fixtureUrl: `${FRONTEND_URL}/player/tournaments/${tournament.id}`,
+        manageNotificationsUrl: `${FRONTEND_URL}/player/settings`,
       });
     }
   }
@@ -256,7 +258,10 @@ export async function confirmTournamentEntry(tournamentTeamId: string) {
       name: captain.name,
       venueName: `${registration.tournament.name} (${registration.tournament.venue.name})`,
       when,
-      amount: registration.total_amount.toLocaleString(),
+      amount: `KES ${registration.total_amount.toLocaleString()}`,
+      organizerName: captain.name,
+      bookingUrl: `${FRONTEND_URL}/player/tournaments/${registration.tournament.id}`,
+      manageNotificationsUrl: `${FRONTEND_URL}/player/settings`,
     });
   }
 
@@ -297,6 +302,8 @@ export async function withdrawTeam(req: Request, res: Response) {
       await sendTemplatedEmail("tournament_withdrawal", organizer.email, {
         teamName: registration.team.name,
         tournamentName: registration.tournament.name,
+        tournamentUrl: `${FRONTEND_URL}/owner/tournaments/${req.params.id}`,
+        manageNotificationsUrl: `${FRONTEND_URL}/owner/settings`,
       });
     }
   }

@@ -4,7 +4,7 @@ import { computeFeeInclusiveRefund, computeServiceFee, computeSessionSplit, comp
 import { getPlatformSettings, type PlatformSettings } from "../services/settings.service.js";
 import { initiateStkPush } from "../services/stk.service.js";
 import { notify } from "../services/notifications.service.js";
-import { sendTemplatedEmail } from "../services/email.service.js";
+import { sendTemplatedEmail, FRONTEND_URL } from "../services/email.service.js";
 import { sendSms } from "../services/sms.service.js";
 
 const EXCLUSION_VIOLATION = "23P01";
@@ -83,13 +83,22 @@ export async function finalizeSplitBookingCancellation(booking: any, reason: str
   if (!updated) return updated;
 
   const { data: participants } = await getBookingParticipants(booking.id);
+  const organizerName = participants?.find((p) => p.is_organizer)?.user?.name ?? "the organizer";
   for (const p of participants ?? []) {
     // An 'open' slot never had anyone in it — nothing to notify. Declined/
     // removed participants already know; only accepted/invited real people
     // need telling.
     if (!p.user || p.status === "declined" || p.status === "removed" || p.status === "open") continue;
     await notify({ userId: p.user.id, type: "booking_cancelled", title: "Booking cancelled", body: `${updated.venue.name} — ${reason}`, link: `/player/bookings/${booking.id}` });
-    if (p.user.email) await sendTemplatedEmail("booking_cancelled", p.user.email, { venueName: updated.venue.name, refundLine: reason });
+    if (p.user.email) {
+      await sendTemplatedEmail("booking_cancelled", p.user.email, {
+        venueName: updated.venue.name,
+        refundLine: reason,
+        organizerName,
+        browseUrl: `${FRONTEND_URL}/player/explore`,
+        manageNotificationsUrl: `${FRONTEND_URL}/player/settings`,
+      });
+    }
   }
   return updated;
 }
@@ -122,9 +131,18 @@ export async function recomputeSplitBookingFunding(bookingId: string) {
   await supabase.from("payouts").insert({ booking_id: updated.id, venue_id: updated.venue_id, owner_id: updated.venue.owner_id, amount: updated.subtotal, status: "pending" });
 
   const when = new Date(updated.start_at).toLocaleString("en-KE", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+  const organizerName = accepted.find((p) => p.is_organizer)?.user?.name ?? "the organizer";
   for (const p of accepted) {
     if (!p.user?.email) continue;
-    await sendTemplatedEmail("booking_confirmed", p.user.email, { name: p.user.name, venueName: updated.venue.name, when, amount: p.share_amount.toLocaleString() });
+    await sendTemplatedEmail("booking_confirmed", p.user.email, {
+      name: p.user.name,
+      venueName: updated.venue.name,
+      when,
+      amount: `KES ${p.share_amount.toLocaleString()}`,
+      organizerName,
+      bookingUrl: `${FRONTEND_URL}/player/bookings/${updated.id}`,
+      manageNotificationsUrl: `${FRONTEND_URL}/player/settings`,
+    });
     await notify({ userId: p.user.id, type: "booking_confirmed", title: "Booking confirmed", body: `${updated.venue.name} · ${when}`, link: `/player/bookings/${updated.id}` });
   }
 
@@ -132,7 +150,15 @@ export async function recomputeSplitBookingFunding(bookingId: string) {
   const { data: owner } = await supabase.from("users").select("email").eq("id", updated.venue.owner_id).maybeSingle();
   for (const recipient of [{ id: updated.venue.owner_id, email: owner?.email }, ...(staff ?? []).map((s) => ({ id: s.id, email: s.email }))]) {
     await notify({ userId: recipient.id, type: "new_booking", title: "New booking", body: `${updated.venue.name} · ${when} · KES ${updated.subtotal.toLocaleString()}`, link: `/owner/bookings` });
-    if (recipient.email) await sendTemplatedEmail("new_booking", recipient.email, { venueName: updated.venue.name, when, amount: updated.subtotal.toLocaleString() });
+    if (recipient.email) {
+      await sendTemplatedEmail("new_booking", recipient.email, {
+        venueName: updated.venue.name,
+        when,
+        amount: `KES ${updated.subtotal.toLocaleString()}`,
+        dashboardUrl: `${FRONTEND_URL}/owner/payments`,
+        manageNotificationsUrl: `${FRONTEND_URL}/owner/settings`,
+      });
+    }
   }
 
   return { booking: updated, funded: true };
@@ -332,7 +358,10 @@ export async function createSplitBooking(req: Request, res: Response) {
         inviterName: req.user!.name,
         venueName: venue.name,
         when,
-        shareAmount: perPersonShare.toLocaleString(),
+        shareAmount: `KES ${perPersonShare.toLocaleString()}`,
+        acceptUrl: `${FRONTEND_URL}/player/bookings/${booking.id}`,
+        declineUrl: `${FRONTEND_URL}/player/bookings/${booking.id}`,
+        manageNotificationsUrl: `${FRONTEND_URL}/player/settings`,
       });
     }
   }
@@ -510,7 +539,13 @@ export async function cancelMyBooking(req: Request, res: Response) {
     link: `/player/bookings/${booking.id}`,
   });
   if (req.user!.email) {
-    await sendTemplatedEmail("booking_cancelled", req.user!.email, { venueName: updated.venue.name, refundLine });
+    await sendTemplatedEmail("booking_cancelled", req.user!.email, {
+      venueName: updated.venue.name,
+      refundLine,
+      organizerName: req.user!.name,
+      browseUrl: `${FRONTEND_URL}/player/explore`,
+      manageNotificationsUrl: `${FRONTEND_URL}/player/settings`,
+    });
   }
 
   res.status(200).json({ booking: updated });

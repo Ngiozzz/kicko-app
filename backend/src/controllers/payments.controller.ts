@@ -4,7 +4,7 @@ import { recomputeSessionFunding } from "./sessions.controller.js";
 import { recomputeSplitBookingFunding } from "./bookings.controller.js";
 import { confirmTournamentEntry } from "./tournaments.controller.js";
 import { notify } from "../services/notifications.service.js";
-import { sendTemplatedEmail } from "../services/email.service.js";
+import { sendTemplatedEmail, FRONTEND_URL } from "../services/email.service.js";
 import { sendSms } from "../services/sms.service.js";
 
 /**
@@ -66,7 +66,10 @@ export async function confirmPayment(req: Request, res: Response) {
         name: player.name,
         venueName: booking.venue.name,
         when,
-        amount: booking.total_amount.toLocaleString(),
+        amount: `KES ${booking.total_amount.toLocaleString()}`,
+        organizerName: player.name,
+        bookingUrl: `${FRONTEND_URL}/player/bookings/${booking.id}`,
+        manageNotificationsUrl: `${FRONTEND_URL}/player/settings`,
       });
     }
     await sendSms({
@@ -95,7 +98,9 @@ export async function confirmPayment(req: Request, res: Response) {
         await sendTemplatedEmail("new_booking", recipient.email, {
           venueName: booking.venue.name,
           when,
-          amount: booking.subtotal.toLocaleString(),
+          amount: `KES ${booking.subtotal.toLocaleString()}`,
+          dashboardUrl: `${FRONTEND_URL}/owner/payments`,
+          manageNotificationsUrl: `${FRONTEND_URL}/owner/settings`,
         });
       }
     }

@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { supabase } from "../config/supabase.js";
 import { getLogs, type LogLevel } from "../services/logs.service.js";
 import { notify } from "../services/notifications.service.js";
-import { sendEmail, sendTemplatedEmail, renderEmailTemplate, SAMPLE_VARS, FALLBACK_TEMPLATES, type EmailTemplateKey } from "../services/email.service.js";
+import { sendEmail, sendTemplatedEmail, renderEmailTemplate, SAMPLE_VARS, FALLBACK_TEMPLATES, FRONTEND_URL, SUPPORT_EMAIL_URL, type EmailTemplateKey } from "../services/email.service.js";
 
 function requireAdmin(req: Request, res: Response): boolean {
   if (req.user!.role !== "admin") {
@@ -232,9 +232,18 @@ export async function setVenueStatus(req: Request, res: Response) {
     });
     if (data.owner?.email) {
       if (status === "verified") {
-        await sendTemplatedEmail("venue_verified", data.owner.email, { venueName: data.name });
+        await sendTemplatedEmail("venue_verified", data.owner.email, {
+          venueName: data.name,
+          venuePageUrl: `${FRONTEND_URL}/owner/venues/${data.id}`,
+          manageNotificationsUrl: `${FRONTEND_URL}/owner/settings`,
+        });
       } else {
-        await sendTemplatedEmail("venue_suspended", data.owner.email, { venueName: data.name, reason: rejection_reason.trim() });
+        await sendTemplatedEmail("venue_suspended", data.owner.email, {
+          venueName: data.name,
+          reason: rejection_reason.trim(),
+          appealUrl: SUPPORT_EMAIL_URL,
+          manageNotificationsUrl: `${FRONTEND_URL}/owner/settings`,
+        });
       }
     }
   }

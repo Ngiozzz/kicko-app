@@ -1,12 +1,10 @@
 import { supabase } from "../config/supabase.js";
-import { sendTemplatedEmail } from "../services/email.service.js";
+import { sendTemplatedEmail, FRONTEND_URL } from "../services/email.service.js";
 
 const CHECK_INTERVAL_MS = 15 * 60_000;
 // Give it a couple hours after the final whistle before asking — not the
 // moment the clock runs out.
 const REQUEST_DELAY_MS = 2 * 60 * 60_000;
-
-const FRONTEND_URL = process.env.FRONTEND_URL ?? "https://kicko-app.co.ke";
 
 const BOOKING_SELECT = "id, venue_id, player_id, end_at, venue:venues(name)";
 
@@ -40,6 +38,7 @@ export async function runReviewRequestOnce() {
             name: player.name,
             venueName: (booking.venue as any).name,
             reviewUrl: `${FRONTEND_URL}/player/explore/${booking.venue_id}`,
+            manageNotificationsUrl: `${FRONTEND_URL}/player/settings`,
           });
         }
       }

@@ -1,40 +1,45 @@
 import { supabase } from "../config/supabase.js";
-import { sendTemplatedEmail } from "../services/email.service.js";
+import { sendTemplatedEmail, FRONTEND_URL } from "../services/email.service.js";
 
 const CHECK_INTERVAL_MS = 5 * 60_000;
 const REMINDER_WINDOW_MS = 60 * 60_000;
 
-const VENUE_COLUMNS = "id, name";
+const VENUE_COLUMNS = "id, name, location";
 const BOOKING_SELECT = `id, session_id, booking_type, start_at, player_id, venue:venues(${VENUE_COLUMNS})`;
 
 function formatWhen(startAt: string): string {
   return new Date(startAt).toLocaleString("en-KE", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 }
 
-/** Every accepted participant on a session or split booking, or just the solo player otherwise. */
-async function recipientsFor(booking: { id: string; booking_type: string; session_id: string | null; player_id: string }): Promise<{ name: string; email: string }[]> {
+/** Every accepted participant on a session or split booking, or just the solo player otherwise — each paired with who organized the game, for the "organized by" line in the reminder email. */
+async function recipientsFor(booking: { id: string; booking_type: string; session_id: string | null; player_id: string }): Promise<{ name: string; email: string; organizerName: string }[]> {
   if (booking.booking_type === "session" && booking.session_id) {
+    const { data: session } = await supabase.from("match_sessions").select("organizer:organizer_id(name)").eq("id", booking.session_id).maybeSingle();
+    const organizerName = (session as any)?.organizer?.name ?? "the organizer";
     const { data } = await supabase
       .from("session_participants")
       .select("status, user:users!session_participants_user_id_fkey(name, email)")
       .eq("session_id", booking.session_id);
     return (data ?? [])
       .filter((p: any) => p.status === "accepted" && p.user?.email)
-      .map((p: any) => ({ name: p.user.name, email: p.user.email }));
+      .map((p: any) => ({ name: p.user.name, email: p.user.email, organizerName }));
   }
 
   if (booking.booking_type === "split") {
     const { data } = await supabase
       .from("booking_participants")
-      .select("status, user:users!booking_participants_user_id_fkey(name, email)")
-      .eq("booking_id", booking.id);
-    return (data ?? [])
+      .select("status, is_organizer, user:users!booking_participants_user_id_fkey(name, email)")
+      .eq("booking_id", booking.id)
+      .returns<{ status: string; is_organizer: boolean; user: { name: string; email: string | null } | null }[]>();
+    const rows = data ?? [];
+    const organizerName = rows.find((p) => p.is_organizer)?.user?.name ?? "the organizer";
+    return rows
       .filter((p: any) => p.status === "accepted" && p.user?.email)
-      .map((p: any) => ({ name: p.user.name, email: p.user.email }));
+      .map((p: any) => ({ name: p.user.name, email: p.user.email, organizerName }));
   }
 
   const { data: player } = await supabase.from("users").select("name, email").eq("id", booking.player_id).maybeSingle();
-  return player?.email ? [{ name: player.name, email: player.email }] : [];
+  return player?.email ? [{ name: player.name, email: player.email, organizerName: player.name }] : [];
 }
 
 /** Emails everyone on a confirmed booking about an hour before kickoff — solo bookings and funded sessions both land in `bookings`, so one pass covers both. */
@@ -55,9 +60,18 @@ export async function runGameReminderOnce() {
 
     for (const booking of due ?? []) {
       const when = formatWhen(booking.start_at);
+      const venue = booking.venue as any;
+      const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue.location ?? venue.name)}`;
       const recipients = await recipientsFor(booking);
       for (const r of recipients) {
-        await sendTemplatedEmail("game_reminder", r.email, { name: r.name, venueName: (booking.venue as any).name, when });
+        await sendTemplatedEmail("game_reminder", r.email, {
+          name: r.name,
+          venueName: venue.name,
+          when,
+          organizerName: r.organizerName,
+          directionsUrl,
+          manageNotificationsUrl: `${FRONTEND_URL}/player/settings`,
+        });
       }
       await supabase.from("bookings").update({ reminder_sent_at: new Date().toISOString() }).eq("id", booking.id);
     }
