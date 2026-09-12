@@ -10,7 +10,12 @@ export type NotificationType =
   | "new_review"
   | "split_booking_invite"
   | "team_invite"
-  | "tournament_entry_confirmed";
+  | "tournament_entry_confirmed"
+  | "fixture_scheduled"
+  | "session_cancelled"
+  | "payout_details_missing"
+  | "tournament_withdrawal"
+  | "venue_submitted";
 
 /**
  * Inserts one notification row. Called directly from whatever controller

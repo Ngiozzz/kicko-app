@@ -10,7 +10,14 @@ export type EmailTemplateKey =
   | 'venue_suspended'
   | 'new_review'
   | 'game_reminder'
-  | 'review_request';
+  | 'review_request'
+  | 'split_booking_invite'
+  | 'team_invite'
+  | 'fixture_scheduled'
+  | 'session_cancelled'
+  | 'payout_details_missing'
+  | 'tournament_withdrawal'
+  | 'venue_submitted';
 
 export type EmailTemplate = {
   key: EmailTemplateKey;
@@ -36,6 +43,13 @@ export const EMAIL_TEMPLATE_LABELS: Record<EmailTemplateKey, string> = {
   new_review: 'New review',
   game_reminder: 'Game reminder (1hr before)',
   review_request: 'Review request (after the game)',
+  split_booking_invite: 'Split booking invite',
+  team_invite: 'Team invite',
+  fixture_scheduled: 'Fixture scheduled (tournament)',
+  session_cancelled: 'Session cancelled (open sessions)',
+  payout_details_missing: 'Payout on hold — no payout details',
+  tournament_withdrawal: 'Team withdrew (organizer)',
+  venue_submitted: 'New venue awaiting review (admin)',
 };
 
 export const emailTemplatesApi = {

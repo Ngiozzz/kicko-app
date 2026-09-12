@@ -261,11 +261,11 @@ export async function createSplitBooking(req: Request, res: Response) {
   // Every named phone must resolve to a real, distinct Kicko player before
   // anything is created — no partial group, no anonymous placeholders. A
   // null entry is deliberately left open rather than named.
-  const partners: { id: string; name: string; phone: string | null }[] = [];
+  const partners: { id: string; name: string; phone: string | null; email: string | null }[] = [];
   const openSlotCount = partner_phones.filter((p) => p === null).length;
   for (const phone of partner_phones) {
     if (phone === null) continue;
-    const { data: partner, error: partnerError } = await supabase.from("users").select("id, name, phone").eq("phone", phone.trim()).eq("role", "player").maybeSingle();
+    const { data: partner, error: partnerError } = await supabase.from("users").select("id, name, phone, email").eq("phone", phone.trim()).eq("role", "player").maybeSingle();
     if (partnerError) return res.status(500).json({ error: "Could not look up one of the players." });
     if (!partner) return res.status(404).json({ error: `No Kicko player found with phone ${phone.trim()}. They'll need an account first.` });
     if (partner.id === req.user!.id || partners.some((p) => p.id === partner.id)) {
@@ -325,6 +325,14 @@ export async function createSplitBooking(req: Request, res: Response) {
       await sendSms({
         to: p.phone,
         message: `Kicko: ${req.user!.name} invited you to split a ${format} booking at ${venue.name} on ${when}. Your share: KES ${perPersonShare.toLocaleString()}. Open Kicko to accept and pay.`,
+      });
+    }
+    if (p.email) {
+      await sendTemplatedEmail("split_booking_invite", p.email, {
+        inviterName: req.user!.name,
+        venueName: venue.name,
+        when,
+        shareAmount: perPersonShare.toLocaleString(),
       });
     }
   }

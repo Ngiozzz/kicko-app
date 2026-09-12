@@ -1,5 +1,7 @@
 import type { Request, Response } from "express";
 import { supabase } from "../config/supabase.js";
+import { notify } from "../services/notifications.service.js";
+import { sendTemplatedEmail } from "../services/email.service.js";
 
 const SPORTS = ["football", "basketball", "tennis", "padel", "volleyball"];
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -197,6 +199,21 @@ export async function createVenue(req: Request, res: Response) {
     .single();
 
   if (error) return res.status(500).json({ error: "Could not create venue." });
+
+  const { data: admins } = await supabase.from("users").select("id, email").eq("role", "admin");
+  for (const admin of admins ?? []) {
+    await notify({
+      userId: admin.id,
+      type: "venue_submitted",
+      title: "New venue awaiting review",
+      body: `${data.name} · ${data.location}`,
+      link: `/admin-dashboard/venues/${data.id}`,
+    });
+    if (admin.email) {
+      await sendTemplatedEmail("venue_submitted", admin.email, { venueName: data.name, ownerName: req.user!.name, location: data.location });
+    }
+  }
+
   res.status(201).json({ venue: data });
 }
 

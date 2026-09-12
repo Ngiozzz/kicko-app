@@ -59,7 +59,14 @@ export type EmailTemplateKey =
   | "venue_suspended"
   | "new_review"
   | "game_reminder"
-  | "review_request";
+  | "review_request"
+  | "split_booking_invite"
+  | "team_invite"
+  | "fixture_scheduled"
+  | "session_cancelled"
+  | "payout_details_missing"
+  | "tournament_withdrawal"
+  | "venue_submitted";
 
 // Only "commentBlock" ever carries caller-built HTML (the review-comment
 // paragraph, already escaped by its caller) — every other placeholder is
@@ -113,6 +120,34 @@ export const FALLBACK_TEMPLATES: Record<EmailTemplateKey, { subject: string; htm
     subject: "How was your game?",
     html: '<h2 style="margin:0 0 12px;">How was your game?</h2><p>Hi {{name}},</p><p>Hope you had a great time at <strong>{{venueName}}</strong>. Got a minute to rate it for other players?</p><p><a href="{{reviewUrl}}" style="color:#C08A3E;font-weight:600;">Leave a review →</a></p>',
   },
+  split_booking_invite: {
+    subject: "You've been invited to split a booking",
+    html: '<h2 style="margin:0 0 12px;">You\'re invited to play</h2><p><strong>{{inviterName}}</strong> invited you to split a booking at <strong>{{venueName}}</strong> on <strong>{{when}}</strong>.</p><p>Your share: <strong>KES {{shareAmount}}</strong></p>',
+  },
+  team_invite: {
+    subject: "You've been invited to join a team",
+    html: '<h2 style="margin:0 0 12px;">You\'re invited to join a team</h2><p><strong>{{inviterName}}</strong> invited you to join <strong>{{teamName}}</strong>{{sportLine}}.</p>',
+  },
+  fixture_scheduled: {
+    subject: "Your match has been scheduled",
+    html: '<h2 style="margin:0 0 12px;">Match scheduled</h2><p><strong>{{teamName}}</strong> vs <strong>{{opponentName}}</strong> — {{tournamentName}}</p><p>{{venueName}} · <strong>{{when}}</strong></p>',
+  },
+  session_cancelled: {
+    subject: "Session cancelled",
+    html: '<h2 style="margin:0 0 12px;">Session cancelled</h2><p>Your session at <strong>{{venueName}}</strong> has been cancelled.</p><p>{{refundLine}}</p>',
+  },
+  payout_details_missing: {
+    subject: "We can't pay you out yet",
+    html: '<h2 style="margin:0 0 12px;">Payout on hold</h2><p><strong>KES {{amount}}</strong> for <strong>{{venueName}}</strong> is ready to send, but this venue has no payout details on file.</p><p>Add your M-Pesa payout details in the Kicko dashboard to receive it.</p>',
+  },
+  tournament_withdrawal: {
+    subject: "A team has withdrawn",
+    html: '<h2 style="margin:0 0 12px;">Team withdrew</h2><p><strong>{{teamName}}</strong> has withdrawn from <strong>{{tournamentName}}</strong>.</p>',
+  },
+  venue_submitted: {
+    subject: "New venue awaiting review",
+    html: '<h2 style="margin:0 0 12px;">New venue submitted</h2><p><strong>{{venueName}}</strong> was submitted by <strong>{{ownerName}}</strong> and is awaiting review.</p><p>{{location}}</p>',
+  },
 };
 
 /** Sample values for every placeholder any template key uses — powers the admin "send test" and preview actions. */
@@ -127,6 +162,13 @@ export const SAMPLE_VARS: Record<EmailTemplateKey, Record<string, string>> = {
   new_review: { venueName: "Test Turf", stars: "★★★★☆", commentBlock: '<p>"Great pitch, would book again!"</p>' },
   game_reminder: { name: "Glenn", venueName: "Test Turf", when: "Sat, Aug 22 · 6:00 PM" },
   review_request: { name: "Glenn", venueName: "Test Turf", reviewUrl: "https://kicko-app.co.ke/player/explore/00000000-0000-0000-0000-000000000000" },
+  split_booking_invite: { inviterName: "Glenn", venueName: "Test Turf", when: "Sat, Aug 22 · 6:00–7:00 PM", shareAmount: "500" },
+  team_invite: { inviterName: "Glenn", teamName: "Mombasa Sharks", sportLine: " · Rugby" },
+  fixture_scheduled: { teamName: "Mombasa Sharks", opponentName: "Nairobi Lions", tournamentName: "Coast Cup", venueName: "Test Turf", when: "Sat, Aug 22 · 6:00 PM" },
+  session_cancelled: { venueName: "Test Turf", refundLine: "A full refund of KES 2,000 has been issued." },
+  payout_details_missing: { venueName: "Test Turf", amount: "1,800" },
+  tournament_withdrawal: { teamName: "Mombasa Sharks", tournamentName: "Coast Cup" },
+  venue_submitted: { venueName: "Test Turf", ownerName: "Glenn", location: "Nairobi, Kenya" },
 };
 
 /**

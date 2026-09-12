@@ -10,6 +10,7 @@ type DuePayout = {
   id: string;
   amount: number;
   owner_id: string;
+  payout_details_reminder_sent_at: string | null;
   booking: { end_at: string } | null;
   session: { end_at: string } | null;
   venue: { name: string; payout_type: "phone" | "paybill" | "till" | null; payout_number: string | null; payout_account_ref: string | null } | null;
@@ -28,7 +29,7 @@ async function resolveDuePayouts() {
   const { data: due, error } = await supabase
     .from("payouts")
     .select(
-      "id, amount, owner_id, booking:bookings(end_at), session:match_sessions(end_at), venue:venues(name, payout_type, payout_number, payout_account_ref), owner:users!payouts_owner_id_fkey(email, phone)"
+      "id, amount, owner_id, payout_details_reminder_sent_at, booking:bookings(end_at), session:match_sessions(end_at), venue:venues(name, payout_type, payout_number, payout_account_ref), owner:users!payouts_owner_id_fkey(email, phone)"
     )
     .eq("status", "pending")
     .returns<DuePayout[]>();
@@ -44,7 +45,25 @@ async function resolveDuePayouts() {
     if (!endAt || new Date(endAt).getTime() > now) continue; // game hasn't happened yet
 
     const venue = payout.venue;
-    if (!venue?.payout_type || !venue.payout_number) continue; // no payout details on file yet
+    if (!venue?.payout_type || !venue.payout_number) {
+      if (!payout.payout_details_reminder_sent_at) {
+        await notify({
+          userId: payout.owner_id,
+          type: "payout_details_missing",
+          title: "We can't pay you out yet",
+          body: `${venue?.name ?? "your venue"} · KES ${payout.amount.toLocaleString()} — add payout details to receive it`,
+          link: "/owner/venues",
+        });
+        if (payout.owner?.email) {
+          await sendTemplatedEmail("payout_details_missing", payout.owner.email, {
+            venueName: venue?.name ?? "your venue",
+            amount: payout.amount.toLocaleString(),
+          });
+        }
+        await supabase.from("payouts").update({ payout_details_reminder_sent_at: new Date().toISOString() }).eq("id", payout.id);
+      }
+      continue; // no payout details on file yet
+    }
 
     const result = await initiateB2CPayout({
       payoutType: venue.payout_type,

@@ -5,6 +5,7 @@ import { computeFeeInclusiveRefund, computeRefundPct, computeSessionSplit, whole
 import { getPlatformSettings, type PlatformSettings } from "../services/settings.service.js";
 import { initiateStkPush } from "../services/stk.service.js";
 import { sendTemplatedEmail } from "../services/email.service.js";
+import { notify } from "../services/notifications.service.js";
 
 const VENUE_COLUMNS = "id, name, location, sport, photos, price_peak, price_off_peak, owner_id, status";
 const SESSION_SELECT = `*, venue:venues(${VENUE_COLUMNS}), organizer:users(name)`;
@@ -125,6 +126,15 @@ export async function finalizeSessionCancellation(session: any, reason: string) 
     .eq("id", session.id)
     .select(SESSION_SELECT)
     .single();
+  if (!updated) return updated;
+
+  const { data: participants } = await getParticipants(session.id);
+  for (const p of participants ?? []) {
+    if (!p.user || p.status !== "accepted") continue;
+    await notify({ userId: p.user.id, type: "session_cancelled", title: "Session cancelled", body: `${updated.venue.name} — ${reason}`, link: `/player/sessions/${session.id}` });
+    if (p.user.email) await sendTemplatedEmail("session_cancelled", p.user.email, { venueName: updated.venue.name, refundLine: reason });
+  }
+
   return updated;
 }
 

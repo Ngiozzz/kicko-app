@@ -21,6 +21,46 @@ async function getFixtures(tournamentId: string) {
   return supabase.from("tournament_fixtures").select(FIXTURE_SELECT).eq("tournament_id", tournamentId).order("scheduled_at", { ascending: true, nullsFirst: false });
 }
 
+/** Tells both captains their match now has a kickoff time — fires whenever a fixture is created or edited with a scheduled_at set. No-ops if the date is still unset (fixture created without one). */
+async function notifyFixtureScheduled(
+  tournament: { id: string; name: string; venue?: { name: string } | null },
+  fixture: { home_team_id: string; away_team_id: string; scheduled_at: string | null }
+) {
+  if (!fixture.scheduled_at) return;
+
+  const { data: teams } = await supabase
+    .from("teams")
+    .select("id, name, captain:captain_id(id, name, email)")
+    .in("id", [fixture.home_team_id, fixture.away_team_id])
+    .returns<{ id: string; name: string; captain: { id: string; name: string; email: string | null } | null }[]>();
+  const home = teams?.find((t) => t.id === fixture.home_team_id);
+  const away = teams?.find((t) => t.id === fixture.away_team_id);
+  if (!home || !away) return;
+
+  const when = new Date(fixture.scheduled_at).toLocaleString("en-KE", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+  const venueName = tournament.venue?.name ?? "Venue TBC";
+  for (const [team, opponent] of [[home, away], [away, home]] as const) {
+    const captain = team.captain;
+    if (!captain) continue;
+    await notify({
+      userId: captain.id,
+      type: "fixture_scheduled",
+      title: "Match scheduled",
+      body: `${team.name} vs ${opponent.name} · ${tournament.name} · ${when}`,
+      link: `/player/tournaments/${tournament.id}`,
+    });
+    if (captain.email) {
+      await sendTemplatedEmail("fixture_scheduled", captain.email, {
+        teamName: team.name,
+        opponentName: opponent.name,
+        tournamentName: tournament.name,
+        venueName,
+        when,
+      });
+    }
+  }
+}
+
 /** Owner creates a tournament at one of their own verified venues — starts in 'draft' until they flip it to 'open' for registration. */
 export async function createTournament(req: Request, res: Response) {
   if (req.user!.role !== "owner") return res.status(403).json({ error: "Only venue owners can create tournaments." });
@@ -230,7 +270,7 @@ export async function withdrawTeam(req: Request, res: Response) {
 
   const { data: registration, error } = await supabase
     .from("tournament_teams")
-    .select("*, team:teams(captain_id)")
+    .select("*, team:teams(name, captain_id), tournament:tournaments(name, owner:owner_id(id, email))")
     .eq("tournament_id", req.params.id)
     .eq("team_id", team_id)
     .maybeSingle();
@@ -243,12 +283,30 @@ export async function withdrawTeam(req: Request, res: Response) {
 
   const { error: updateError } = await supabase.from("tournament_teams").update({ status: "withdrawn" }).eq("id", registration.id);
   if (updateError) return res.status(500).json({ error: "Could not withdraw this team." });
+
+  const organizer = registration.tournament.owner;
+  if (organizer) {
+    await notify({
+      userId: organizer.id,
+      type: "tournament_withdrawal",
+      title: "A team has withdrawn",
+      body: `${registration.team.name} withdrew from ${registration.tournament.name}`,
+      link: `/owner/tournaments/${req.params.id}`,
+    });
+    if (organizer.email) {
+      await sendTemplatedEmail("tournament_withdrawal", organizer.email, {
+        teamName: registration.team.name,
+        tournamentName: registration.tournament.name,
+      });
+    }
+  }
+
   res.status(200).json({ ok: true });
 }
 
 /** Organizer manually creates a fixture — both teams must already be registered (and paid) for this tournament. No auto-bracket generation. */
 export async function createFixture(req: Request, res: Response) {
-  const { data: tournament, error } = await supabase.from("tournaments").select("*").eq("id", req.params.id).maybeSingle();
+  const { data: tournament, error } = await supabase.from("tournaments").select("*, venue:venues(name)").eq("id", req.params.id).maybeSingle();
   if (error) return res.status(500).json({ error: "Could not load tournament." });
   if (!tournament) return res.status(404).json({ error: "Tournament not found." });
   if (tournament.owner_id !== req.user!.id) return res.status(403).json({ error: "Only the organizer can add fixtures." });
@@ -281,12 +339,19 @@ export async function createFixture(req: Request, res: Response) {
     .single();
   if (fixtureError) return res.status(500).json({ error: "Could not create fixture." });
 
+  await notifyFixtureScheduled(tournament, fixture);
+
   res.status(201).json({ fixture });
 }
 
 /** Organizer updates a fixture's schedule or records its result. Setting both scores auto-completes it and sets the winner (null winner_team_id on a genuine draw). */
 export async function updateFixture(req: Request, res: Response) {
-  const { data: tournament, error } = await supabase.from("tournaments").select("owner_id").eq("id", req.params.id).maybeSingle();
+  const { data: tournament, error } = await supabase
+    .from("tournaments")
+    .select("id, owner_id, name, venue:venues(name)")
+    .eq("id", req.params.id)
+    .maybeSingle()
+    .returns<{ id: string; owner_id: string; name: string; venue: { name: string } | null }>();
   if (error) return res.status(500).json({ error: "Could not load tournament." });
   if (!tournament) return res.status(404).json({ error: "Tournament not found." });
   if (tournament.owner_id !== req.user!.id) return res.status(403).json({ error: "Only the organizer can edit fixtures." });
@@ -318,6 +383,11 @@ export async function updateFixture(req: Request, res: Response) {
 
   const { data: updated, error: updateError } = await supabase.from("tournament_fixtures").update(update).eq("id", fixture.id).select(FIXTURE_SELECT).single();
   if (updateError) return res.status(500).json({ error: "Could not update fixture." });
+
+  if (scheduled_at !== undefined && updated.scheduled_at !== fixture.scheduled_at) {
+    await notifyFixtureScheduled(tournament, updated);
+  }
+
   res.status(200).json({ fixture: updated });
 }
 

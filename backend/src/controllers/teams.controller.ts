@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { supabase } from "../config/supabase.js";
 import { notify } from "../services/notifications.service.js";
 import { sendSms } from "../services/sms.service.js";
+import { sendTemplatedEmail } from "../services/email.service.js";
 
 const TEAM_SELECT = "*";
 // Two FKs into users (user_id, invited_by) — must name the one we mean,
@@ -121,7 +122,7 @@ export async function inviteTeamMember(req: Request, res: Response) {
   const { phone } = req.body;
   if (typeof phone !== "string" || !phone.trim()) return res.status(400).json({ error: "phone is required." });
 
-  const { data: invitee, error: inviteeError } = await supabase.from("users").select("id, name, phone").eq("phone", phone.trim()).eq("role", "player").maybeSingle();
+  const { data: invitee, error: inviteeError } = await supabase.from("users").select("id, name, phone, email").eq("phone", phone.trim()).eq("role", "player").maybeSingle();
   if (inviteeError) return res.status(500).json({ error: "Could not look up that player." });
   if (!invitee) return res.status(404).json({ error: "No Kicko player found with that phone number." });
 
@@ -149,6 +150,13 @@ export async function inviteTeamMember(req: Request, res: Response) {
   });
   if (invitee.phone) {
     await sendSms({ to: invitee.phone, message: `Kicko: ${req.user!.name} invited you to join their team "${team.name}". Open Kicko to accept.` });
+  }
+  if (invitee.email) {
+    await sendTemplatedEmail("team_invite", invitee.email, {
+      inviterName: req.user!.name,
+      teamName: team.name,
+      sportLine: team.sport ? ` · ${team.sport}` : "",
+    });
   }
 
   res.status(201).json({ member: shapeMember(member) });
