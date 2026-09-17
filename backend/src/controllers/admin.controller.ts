@@ -457,13 +457,13 @@ export async function deleteAdmin(req: Request, res: Response) {
   const { data: target } = await supabase.from("users").select("role, suspended, admin_approved_at").eq("id", req.params.id).maybeSingle();
   if (!target) return res.status(404).json({ error: "User not found." });
   if (!isAdminRole(target.role)) return res.status(400).json({ error: "Only admin/ceo accounts can be deleted here." });
-  // A plain admin can still delete other (approved) admins, but only a
-  // ceo can remove a ceo account — same top-of-hierarchy protection as
-  // createAdmin's matching check.
-  if (target.role === "ceo" && req.user!.role !== "ceo") {
-    return res.status(403).json({ error: "Only a CEO can delete another CEO account." });
+  // ceo accounts can never be deleted through this endpoint — by anyone,
+  // including another ceo. Undeletable is a deliberate, permanent
+  // protection, not just "needs a higher role" (that was the old rule).
+  if (target.role === "ceo") {
+    return res.status(403).json({ error: "CEO accounts can't be deleted." });
   }
-  const targetCounts = target.role === "ceo" || (target.role === "admin" && target.admin_approved_at);
+  const targetCounts = target.role === "admin" && target.admin_approved_at;
   if (targetCounts && !target.suspended && (await countActiveAdmins()) <= 1) {
     return res.status(400).json({ error: "You can't delete the last remaining admin." });
   }

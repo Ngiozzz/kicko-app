@@ -130,7 +130,7 @@ function UserActions({ user, isSelf, isLastActiveAdmin, canApprove, busyId, conf
           {busyId === user.id ? '…' : user.suspended ? 'Unsuspend' : 'Suspend'}
         </Text>
       </Pressable>
-      {(user.role === 'admin' || user.role === 'ceo') && !isSelf && (
+      {user.role === 'admin' && !isSelf && (
         <Pressable onPress={stop(onRequestDelete)} disabled={isLastActiveAdmin && !user.suspended}>
           <Text style={[styles.deleteText, isLastActiveAdmin && !user.suspended && styles.deleteTextDisabled]}>Delete</Text>
         </Pressable>
