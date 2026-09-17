@@ -12,25 +12,14 @@
 -- existing security-definer public.is_admin() helper (and widening that
 -- helper to accept 'ceo') fixes both problems in one move.
 
--- Drop-by-lookup instead of a hardcoded constraint name — the role check
--- constraint on public.users was added unnamed in 20260816000000_init.sql,
--- so Postgres auto-named it, and guessing wrong here would silently leave
--- the old 4-value constraint active alongside a new 5-value one (both
--- would then have to pass, permanently blocking 'ceo').
-do $$
-declare
-  cname text;
-begin
-  select conname into cname
-  from pg_constraint
-  where conrelid = 'public.users'::regclass
-    and contype = 'c'
-    and pg_get_constraintdef(oid) ilike '%role%';
-  if cname is not null then
-    execute format('alter table public.users drop constraint %I', cname);
-  end if;
-end $$;
-
+-- Every statement here is written to be safely re-runnable (if exists /
+-- create or replace) — the GitHub Actions auto-deploy for this migration
+-- failed twice (exit 1, no usable logs surfaced), and a retry after a
+-- partial apply otherwise errors on "already exists"/"does not exist"
+-- rather than just finishing the job. Root cause of the CI failures
+-- itself is still open — see PROGRESS.md.
+alter table public.users
+  drop constraint if exists users_role_check;
 alter table public.users
   add constraint users_role_check
   check (role in ('player', 'owner', 'manager', 'admin', 'ceo'));
@@ -40,9 +29,9 @@ returns boolean as $$
   select exists (select 1 from public.users where id = auth.uid() and role in ('admin', 'ceo'));
 $$ language sql security definer set search_path = public stable;
 
-drop policy "Admins can upload any venue's photos" on storage.objects;
-drop policy "Admins can update any venue's photos" on storage.objects;
-drop policy "Admins can delete any venue's photos" on storage.objects;
+drop policy if exists "Admins can upload any venue's photos" on storage.objects;
+drop policy if exists "Admins can update any venue's photos" on storage.objects;
+drop policy if exists "Admins can delete any venue's photos" on storage.objects;
 
 create policy "Admins can upload any venue's photos"
 on storage.objects for insert
