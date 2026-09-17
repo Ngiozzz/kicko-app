@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { useFocusEffect } from 'expo-router';
 import { colors, fonts, radius } from '@kicko/shared';
 import { bookingsApi, Booking } from '../../src/lib/bookingsApi';
+import { useIsMobile } from '../../src/lib/useIsMobile';
 
 type Filter = 'all' | 'attention' | 'payout' | 'refund';
 const TABS: { key: Filter; label: string }[] = [
@@ -24,7 +25,44 @@ function matchesFilter(b: Booking, filter: Filter) {
   return true;
 }
 
+// The 7-column table reads fine on desktop but is unusable squeezed into a
+// phone's width — each row becomes a small card instead, same data,
+// stacked as label/value pairs.
+function PaymentCard({ booking }: { booking: Booking }) {
+  const payout = booking.payouts?.[0];
+  const refund = booking.refunds?.[0];
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHead}>
+        <Text style={styles.cardVenue}>{booking.venue.name}</Text>
+        <Text style={styles.cardDate}>{new Date(booking.start_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}</Text>
+      </View>
+      <Text style={styles.cardPlayer}>{booking.player?.name ?? 'Unknown player'}</Text>
+
+      <View style={styles.cardRow}>
+        <Text style={styles.cardRowLabel}>Amount</Text>
+        <Text style={styles.cardRowValue}>KES {booking.total_amount.toLocaleString()}</Text>
+      </View>
+      <View style={styles.cardRow}>
+        <Text style={styles.cardRowLabel}>Service fee</Text>
+        <Text style={styles.cardRowValue}>KES {booking.service_fee.toLocaleString()}</Text>
+      </View>
+      <View style={styles.cardRow}>
+        <Text style={styles.cardRowLabel}>Payout</Text>
+        <Text style={[styles.cardRowValue, payout?.status === 'failed' && styles.cellBad, payout?.status === 'paid' && styles.cellGood]}>
+          {payout ? `KES ${payout.amount.toLocaleString()} · ${payout.status}` : '—'}
+        </Text>
+      </View>
+      <View style={[styles.cardRow, styles.cardRowLast]}>
+        <Text style={styles.cardRowLabel}>Refund</Text>
+        <Text style={[styles.cardRowValue, refund && styles.cellBad]}>{refund ? `KES ${refund.amount.toLocaleString()} · ${refund.pct}%` : '—'}</Text>
+      </View>
+    </View>
+  );
+}
+
 export default function OwnerPayments() {
+  const isMobile = useIsMobile();
   const [filter, setFilter] = useState<Filter>('all');
   const [bookings, setBookings] = useState<Booking[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -62,45 +100,53 @@ export default function OwnerPayments() {
         </View>
       </View>
 
-      <View style={styles.tablePanel}>
-        <View style={styles.tableHeadRow}>
-          {COLUMNS.map((c) => (
-            <Text key={c} style={styles.tableHeadCell}>
-              {c}
-            </Text>
+      {bookings === null && !error && (
+        <View style={styles.loadingRow}>
+          <ActivityIndicator color={colors.accent} />
+        </View>
+      )}
+      {error && <Text style={styles.error}>{error}</Text>}
+      {bookings && filtered.length === 0 && (
+        <View style={styles.emptyRow}>
+          <Text style={styles.emptyText}>No transactions match this filter.</Text>
+        </View>
+      )}
+
+      {isMobile ? (
+        <View style={styles.cardsWrap}>
+          {filtered.map((b) => (
+            <PaymentCard key={b.id} booking={b} />
           ))}
         </View>
-
-        {bookings === null && !error && (
-          <View style={styles.loadingRow}>
-            <ActivityIndicator color={colors.accent} />
-          </View>
-        )}
-        {error && <Text style={styles.error}>{error}</Text>}
-        {bookings && filtered.length === 0 && (
-          <View style={styles.emptyRow}>
-            <Text style={styles.emptyText}>No transactions match this filter.</Text>
-          </View>
-        )}
-
-        {filtered.map((b) => {
-          const payout = b.payouts?.[0];
-          const refund = b.refunds?.[0];
-          return (
-            <View key={b.id} style={styles.tableRow}>
-              <Text style={styles.cell}>{b.venue.name}</Text>
-              <Text style={styles.cell}>{new Date(b.start_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}</Text>
-              <Text style={styles.cell}>{b.player?.name ?? '—'}</Text>
-              <Text style={styles.cell}>KES {b.total_amount.toLocaleString()}</Text>
-              <Text style={styles.cell}>KES {b.service_fee.toLocaleString()}</Text>
-              <Text style={[styles.cell, payout?.status === 'failed' && styles.cellBad, payout?.status === 'paid' && styles.cellGood]}>
-                {payout ? `KES ${payout.amount.toLocaleString()} · ${payout.status}` : '—'}
+      ) : (
+        <View style={styles.tablePanel}>
+          <View style={styles.tableHeadRow}>
+            {COLUMNS.map((c) => (
+              <Text key={c} style={styles.tableHeadCell}>
+                {c}
               </Text>
-              <Text style={[styles.cell, refund && styles.cellBad]}>{refund ? `KES ${refund.amount.toLocaleString()} · ${refund.pct}%` : '—'}</Text>
-            </View>
-          );
-        })}
-      </View>
+            ))}
+          </View>
+
+          {filtered.map((b) => {
+            const payout = b.payouts?.[0];
+            const refund = b.refunds?.[0];
+            return (
+              <View key={b.id} style={styles.tableRow}>
+                <Text style={styles.cell}>{b.venue.name}</Text>
+                <Text style={styles.cell}>{new Date(b.start_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}</Text>
+                <Text style={styles.cell}>{b.player?.name ?? '—'}</Text>
+                <Text style={styles.cell}>KES {b.total_amount.toLocaleString()}</Text>
+                <Text style={styles.cell}>KES {b.service_fee.toLocaleString()}</Text>
+                <Text style={[styles.cell, payout?.status === 'failed' && styles.cellBad, payout?.status === 'paid' && styles.cellGood]}>
+                  {payout ? `KES ${payout.amount.toLocaleString()} · ${payout.status}` : '—'}
+                </Text>
+                <Text style={[styles.cell, refund && styles.cellBad]}>{refund ? `KES ${refund.amount.toLocaleString()} · ${refund.pct}%` : '—'}</Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
     </View>
   );
 }
@@ -129,4 +175,15 @@ const styles = StyleSheet.create({
   error: { fontFamily: fonts.sans, fontSize: 13, color: colors.danger, paddingVertical: 20 },
   emptyRow: { paddingVertical: 30 },
   emptyText: { fontFamily: fonts.sans, fontSize: 13, color: colors.textSoft, textAlign: 'center' },
+
+  cardsWrap: { marginTop: 22, gap: 14 },
+  card: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 18 },
+  cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 },
+  cardVenue: { flex: 1, fontFamily: fonts.serifMedium, fontSize: 15, color: colors.text },
+  cardDate: { fontFamily: fonts.sans, fontSize: 12, color: colors.textSoft },
+  cardPlayer: { fontFamily: fonts.sans, fontSize: 12.5, color: colors.textSoft, marginTop: 2, marginBottom: 12 },
+  cardRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border },
+  cardRowLast: { borderBottomWidth: 0, paddingBottom: 0 },
+  cardRowLabel: { fontFamily: fonts.sans, fontSize: 12.5, color: colors.textSoft },
+  cardRowValue: { fontFamily: fonts.sansSemiBold, fontSize: 13, color: colors.text },
 });

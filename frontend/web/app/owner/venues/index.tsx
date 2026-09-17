@@ -196,7 +196,11 @@ const styles = StyleSheet.create({
   emptyNote: { fontFamily: fonts.sans, fontSize: 13, color: colors.textSoft, textAlign: 'center', paddingVertical: 30 },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 22 },
-  card: { width: 280, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 20 },
+  // flexBasis/flexGrow instead of a fixed width — a lone card on a phone
+  // fills the row properly instead of floating at a fixed 280px with dead
+  // space beside it, while maxWidth keeps it from stretching absurdly wide
+  // on a single-card row on a laptop/tablet screen.
+  card: { flexGrow: 1, flexBasis: 280, maxWidth: 360, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 20 },
   thumb: {
     height: 110,
     borderRadius: radius.md,
