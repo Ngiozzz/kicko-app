@@ -7,9 +7,11 @@ import { AdminShell } from '../../src/components/admin/AdminShell';
 // Auth/role gate for every /admin-dashboard/* screen — see useRoleGate for
 // the shared checks (auth, role, session-inactivity timeout). Unauthenticated
 // visitors bounce to the dedicated admin sign-in page (not the public
-// /sign-in — admins never self-register, see app/admin.tsx).
+// /sign-in — admins never self-register, see app/admin.tsx). 'ceo' is a
+// full admin-equivalent account under a different label, so it shares this
+// entire layout.
 export default function AdminLayout() {
-  const { status, name, avatarUrl } = useRoleGate('admin');
+  const { status, name, avatarUrl, role } = useRoleGate(['admin', 'ceo']);
 
   if (status === 'checking') {
     return (
@@ -20,7 +22,7 @@ export default function AdminLayout() {
   }
 
   return (
-    <AdminShell userName={name} avatarUrl={avatarUrl}>
+    <AdminShell userName={name} avatarUrl={avatarUrl} roleLabel={role === 'ceo' ? 'CEO' : 'Admin'}>
       <Slot />
     </AdminShell>
   );

@@ -22,7 +22,9 @@ Full booking platform, live in production as of this session:
   so booking/payout emails still fall back to console-log. See "Next
   steps" below — this needs Resend's SPF include merged into the
   existing Zoho SPF TXT record, not added as a second record.
-- **Auth & roles**: player / owner / manager / admin, Supabase Auth +
+- **Auth & roles**: player / owner / manager / admin / ceo (ceo is a full
+  admin-equivalent, just a distinct label — see requireAdmin() in
+  admin.controller.ts), Supabase Auth +
   `public.users`. Managers log in by phone (no real email) via a
   synthetic-email trick (`${digits}@manager.kicko.internal`) — both
   `backend/src/controllers/managers.controller.ts` and

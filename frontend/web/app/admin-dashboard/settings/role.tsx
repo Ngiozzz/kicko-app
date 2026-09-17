@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { apiFetch, colors, fonts, radius } from '@kicko/shared';
+import { apiFetch, colors, fonts, radius, supabase } from '@kicko/shared';
 import { Button, Field } from '../../../src/components/ui';
 import { isDarkMode, setDarkMode } from '../../../src/lib/theme';
 
@@ -23,6 +23,11 @@ export default function AdminRoleSettings() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dark, setDark] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordSaved, setPasswordSaved] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   useEffect(() => {
     if (Platform.OS === 'web') setDark(isDarkMode());
@@ -62,6 +67,35 @@ export default function AdminRoleSettings() {
     setDarkMode(next);
   }
 
+  // Changes the password directly via Supabase's own client-side auth —
+  // same "auth stays client-side" split the rest of the app follows (no
+  // backend endpoint needed; the active session is proof enough of who's
+  // asking, same as how Supabase treats it everywhere else).
+  async function handleChangePassword() {
+    if (newPassword.length < 8) {
+      setPasswordError('New password must be at least 8 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Passwords don't match.");
+      return;
+    }
+    setPasswordSaving(true);
+    setPasswordError(null);
+    setPasswordSaved(false);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      setNewPassword('');
+      setConfirmPassword('');
+      setPasswordSaved(true);
+    } catch (err) {
+      setPasswordError(err instanceof Error ? err.message : 'Could not change your password.');
+    } finally {
+      setPasswordSaving(false);
+    }
+  }
+
   return (
     <View>
       <Text style={styles.title}>Role settings</Text>
@@ -80,6 +114,14 @@ export default function AdminRoleSettings() {
             <Button title={saving ? 'Saving…' : 'Save changes'} onPress={handleSave} disabled={saving} />
           </>
         )}
+      </SettingsCard>
+
+      <SettingsCard title="Password">
+        <Field label="New password" placeholder="At least 8 characters" secureTextEntry value={newPassword} onChangeText={setNewPassword} />
+        <Field label="Confirm new password" placeholder="Re-enter it" secureTextEntry value={confirmPassword} onChangeText={setConfirmPassword} />
+        {passwordError ? <Text style={styles.error}>{passwordError}</Text> : null}
+        {passwordSaved ? <Text style={styles.saved}>Password changed.</Text> : null}
+        <Button title={passwordSaving ? 'Saving…' : 'Change password'} onPress={handleChangePassword} disabled={passwordSaving} />
       </SettingsCard>
 
       <SettingsCard title="Appearance">

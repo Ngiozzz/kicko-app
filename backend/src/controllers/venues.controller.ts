@@ -210,7 +210,7 @@ export async function createVenue(req: Request, res: Response) {
 
   if (error) return res.status(500).json({ error: "Could not create venue." });
 
-  const { data: admins } = await supabase.from("users").select("id, email").eq("role", "admin");
+  const { data: admins } = await supabase.from("users").select("id, email").in("role", ["admin", "ceo"]);
   for (const admin of admins ?? []) {
     await notify({
       userId: admin.id,

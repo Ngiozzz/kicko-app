@@ -137,15 +137,20 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
 export function AdminShell({
   userName,
   avatarUrl,
+  roleLabel = 'Admin',
   children,
 }: {
   userName: string;
   avatarUrl?: string | null;
+  // 'CEO' for a ceo-role account, 'Admin' otherwise — see
+  // admin-dashboard/_layout.tsx. Purely a display label; access is
+  // identical either way (see admin.controller.ts#requireAdmin).
+  roleLabel?: string;
   children: ReactNode;
 }) {
   return (
     <BreadcrumbProvider>
-      <AdminShellInner userName={userName} avatarUrl={avatarUrl}>
+      <AdminShellInner userName={userName} avatarUrl={avatarUrl} roleLabel={roleLabel}>
         {children}
       </AdminShellInner>
     </BreadcrumbProvider>
@@ -157,10 +162,12 @@ export function AdminShell({
 function AdminShellInner({
   userName,
   avatarUrl,
+  roleLabel,
   children,
 }: {
   userName: string;
   avatarUrl?: string | null;
+  roleLabel: string;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -185,7 +192,7 @@ function AdminShellInner({
                 Kick<Text style={{ color: colors.accent }}>o</Text>
               </Text>
             </View>
-            <Text style={styles.roleTag}>Admin access</Text>
+            <Text style={styles.roleTag}>{roleLabel} access</Text>
           </Pressable>
         </Link>
 
@@ -252,7 +259,7 @@ function AdminShellInner({
               <MobileAccountMenu
                 userName={userName}
                 avatarUrl={avatarUrl}
-                roleLabel="Admin"
+                roleLabel={roleLabel}
                 items={[{ label: 'Settings', href: '/admin-dashboard/settings' }, { label: 'Help Center' }, { label: 'Documentation' }]}
                 onSignOut={handleSignOut}
               />
@@ -263,7 +270,7 @@ function AdminShellInner({
                     <Avatar name={userName} avatarUrl={avatarUrl} />
                     <View>
                       <Text style={styles.userName}>{userName.split(' ')[0]}</Text>
-                      <Text style={styles.userRole}>Admin</Text>
+                      <Text style={styles.userRole}>{roleLabel}</Text>
                     </View>
                   </Pressable>
                 </Link>

@@ -9,6 +9,7 @@ export function resolveHomeRoute(role: string): string {
     case 'manager':
       return '/manager';
     case 'admin':
+    case 'ceo':
       return '/admin-dashboard';
     default:
       return '/';

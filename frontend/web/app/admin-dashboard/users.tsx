@@ -6,13 +6,14 @@ import { adminApi, AdminUser, AdminUserActivity } from '../../src/lib/adminApi';
 import { Drawer } from '../../src/components/owner/Drawer';
 import { Button, Field } from '../../src/components/ui';
 
-type Filter = 'all' | 'player' | 'owner' | 'manager' | 'admin';
+type Filter = 'all' | 'player' | 'owner' | 'manager' | 'admin' | 'ceo';
 const TABS: { key: Filter; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'player', label: 'Players' },
   { key: 'owner', label: 'Owners' },
   { key: 'manager', label: 'Managers' },
   { key: 'admin', label: 'Admins' },
+  { key: 'ceo', label: 'CEOs' },
 ];
 
 type ViewMode = 'grid' | 'table';
@@ -22,6 +23,17 @@ const ROLE_STYLE: Record<AdminUser['role'], { bg: string; color: string }> = {
   owner: { bg: 'rgba(60,122,92,0.14)', color: colors.good },
   manager: { bg: 'rgba(90,95,102,0.16)', color: colors.textSoft },
   admin: { bg: 'rgba(196,69,63,0.12)', color: colors.danger },
+  ceo: { bg: 'rgba(154,111,219,0.16)', color: '#7b4fc9' },
+};
+
+// 'admin'/'ceo' need their real acronym casing — everything else is just
+// the role string capitalized.
+const ROLE_LABEL: Record<AdminUser['role'], string> = {
+  player: 'Player',
+  owner: 'Owner',
+  manager: 'Manager',
+  admin: 'Admin',
+  ceo: 'CEO',
 };
 
 // Falls back to the role-colored initial (green for owners, red for
@@ -109,7 +121,7 @@ function UserActions({ user, isSelf, isLastActiveAdmin, busyId, confirming, onSu
           {busyId === user.id ? '…' : user.suspended ? 'Unsuspend' : 'Suspend'}
         </Text>
       </Pressable>
-      {user.role === 'admin' && !isSelf && (
+      {(user.role === 'admin' || user.role === 'ceo') && !isSelf && (
         <Pressable onPress={stop(onRequestDelete)} disabled={isLastActiveAdmin && !user.suspended}>
           <Text style={[styles.deleteText, isLastActiveAdmin && !user.suspended && styles.deleteTextDisabled]}>Delete</Text>
         </Pressable>
@@ -119,6 +131,7 @@ function UserActions({ user, isSelf, isLastActiveAdmin, busyId, confirming, onSu
 }
 
 function AddAdminDrawer({ visible, onClose, onCreated }: { visible: boolean; onClose: () => void; onCreated: (user: AdminUser) => void }) {
+  const [role, setRole] = useState<'admin' | 'ceo'>('admin');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -127,6 +140,7 @@ function AddAdminDrawer({ visible, onClose, onCreated }: { visible: boolean; onC
   const [error, setError] = useState<string | null>(null);
 
   function reset() {
+    setRole('admin');
     setName('');
     setEmail('');
     setPhone('');
@@ -142,12 +156,12 @@ function AddAdminDrawer({ visible, onClose, onCreated }: { visible: boolean; onC
     setSaving(true);
     setError(null);
     try {
-      const { user } = await adminApi.createAdmin({ name: name.trim(), email: email.trim(), password, phone: phone || undefined });
+      const { user } = await adminApi.createAdmin({ name: name.trim(), email: email.trim(), password, phone: phone || undefined, role });
       onCreated(user);
       reset();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create this admin account.');
+      setError(err instanceof Error ? err.message : 'Could not create this account.');
     } finally {
       setSaving(false);
     }
@@ -160,20 +174,30 @@ function AddAdminDrawer({ visible, onClose, onCreated }: { visible: boolean; onC
         reset();
         onClose();
       }}
-      title="Add an admin"
+      title={role === 'ceo' ? 'Add a CEO' : 'Add an admin'}
     >
       <Text style={styles.drawerIntro}>
         They'll get full admin access — every venue, every account, platform-wide. Only add people you'd trust with that.
       </Text>
 
+      <View style={styles.roleToggle}>
+        <Pressable onPress={() => setRole('admin')} style={[styles.roleToggleOption, role === 'admin' && styles.roleToggleOptionActive]}>
+          <Text style={[styles.roleToggleText, role === 'admin' && styles.roleToggleTextActive]}>Admin</Text>
+        </Pressable>
+        <Pressable onPress={() => setRole('ceo')} style={[styles.roleToggleOption, role === 'ceo' && styles.roleToggleOptionActive]}>
+          <Text style={[styles.roleToggleText, role === 'ceo' && styles.roleToggleTextActive]}>CEO</Text>
+        </Pressable>
+      </View>
+
       <Field label="Full name" placeholder="Jane Doe" value={name} onChangeText={setName} />
       <Field label="Email" placeholder="jane@kicko.app" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
       <Field label="Phone (optional)" placeholder="+254 700 000 000" keyboardType="phone-pad" value={phone} onChangeText={setPhone} />
       <Field label="Temporary password" placeholder="At least 8 characters" secureTextEntry value={password} onChangeText={setPassword} />
+      <Text style={styles.drawerHint}>They'll sign in the same way — from the admin sign-in page — and can change this password themselves under Settings → Role once logged in.</Text>
 
       {error ? <Text style={styles.drawerError}>{error}</Text> : null}
 
-      <Button title={saving ? 'Creating…' : 'Create admin account'} onPress={handleSubmit} disabled={saving} />
+      <Button title={saving ? 'Creating…' : `Create ${role === 'ceo' ? 'CEO' : 'admin'} account`} onPress={handleSubmit} disabled={saving} />
     </Drawer>
   );
 }
@@ -208,7 +232,7 @@ function UserDetailDrawer({ user, onClose }: { user: AdminUser | null; onClose: 
           <Text style={styles.detailName}>{user.name || 'Unnamed'}</Text>
           <View style={styles.detailBadgeRow}>
             <View style={[styles.roleBadge, { backgroundColor: roleStyle.bg }]}>
-              <Text style={[styles.roleBadgeText, { color: roleStyle.color }]}>{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</Text>
+              <Text style={[styles.roleBadgeText, { color: roleStyle.color }]}>{ROLE_LABEL[user.role]}</Text>
             </View>
             <View style={[styles.statusPill, user.suspended && styles.statusPillSuspended]}>
               <Text style={[styles.statusPillText, user.suspended && styles.statusPillTextSuspended]}>{user.suspended ? 'Suspended' : 'Active'}</Text>
@@ -359,7 +383,7 @@ export default function AdminUsers() {
     }, [load])
   );
 
-  const activeAdminCount = users?.filter((u) => u.role === 'admin' && !u.suspended).length ?? 0;
+  const activeAdminCount = users?.filter((u) => (u.role === 'admin' || u.role === 'ceo') && !u.suspended).length ?? 0;
 
   async function toggleSuspend(user: AdminUser) {
     setBusyId(user.id);
@@ -394,6 +418,7 @@ export default function AdminUsers() {
     owner: users?.filter((u) => u.role === 'owner').length ?? 0,
     manager: users?.filter((u) => u.role === 'manager').length ?? 0,
     admin: users?.filter((u) => u.role === 'admin').length ?? 0,
+    ceo: users?.filter((u) => u.role === 'ceo').length ?? 0,
   };
   const visible = users?.filter((u) => filter === 'all' || u.role === filter) ?? [];
 
@@ -447,6 +472,10 @@ export default function AdminUsers() {
           <Text style={styles.statLabel}>Admins</Text>
           <Text style={styles.statValue}>{counts.admin}</Text>
         </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statLabel}>CEOs</Text>
+          <Text style={styles.statValue}>{counts.ceo}</Text>
+        </View>
       </View>
 
       {error && <Text style={styles.error}>{error}</Text>}
@@ -462,7 +491,7 @@ export default function AdminUsers() {
           {visible.map((user) => {
             const roleStyle = ROLE_STYLE[user.role];
             const isSelf = user.id === selfId;
-            const isLastActiveAdmin = user.role === 'admin' && !user.suspended && activeAdminCount <= 1;
+            const isLastActiveAdmin = (user.role === 'admin' || user.role === 'ceo') && !user.suspended && activeAdminCount <= 1;
             const confirming = confirmDeleteId === user.id;
             const metaChips = metaChipsFor(user);
 
@@ -476,7 +505,7 @@ export default function AdminUsers() {
                       {isSelf && <Text style={styles.youTag}> · You</Text>}
                     </Text>
                     <View style={[styles.roleBadge, { backgroundColor: roleStyle.bg }]}>
-                      <Text style={[styles.roleBadgeText, { color: roleStyle.color }]}>{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</Text>
+                      <Text style={[styles.roleBadgeText, { color: roleStyle.color }]}>{ROLE_LABEL[user.role]}</Text>
                     </View>
                   </View>
                   <View style={[styles.statusPill, user.suspended && styles.statusPillSuspended]}>
@@ -539,7 +568,7 @@ export default function AdminUsers() {
           {visible.map((user) => {
             const roleStyle = ROLE_STYLE[user.role];
             const isSelf = user.id === selfId;
-            const isLastActiveAdmin = user.role === 'admin' && !user.suspended && activeAdminCount <= 1;
+            const isLastActiveAdmin = (user.role === 'admin' || user.role === 'ceo') && !user.suspended && activeAdminCount <= 1;
             const confirming = confirmDeleteId === user.id;
 
             return (
@@ -558,7 +587,7 @@ export default function AdminUsers() {
                 </View>
                 <View style={styles.colRole}>
                   <View style={[styles.roleBadge, { backgroundColor: roleStyle.bg }]}>
-                    <Text style={[styles.roleBadgeText, { color: roleStyle.color }]}>{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</Text>
+                    <Text style={[styles.roleBadgeText, { color: roleStyle.color }]}>{ROLE_LABEL[user.role]}</Text>
                   </View>
                 </View>
                 <Text style={[styles.tableMetaText, styles.colMeta]} numberOfLines={1}>
@@ -716,7 +745,14 @@ const styles = StyleSheet.create({
   userCell: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 
   drawerIntro: { fontFamily: fonts.sans, fontSize: 13.5, color: colors.textSoft, lineHeight: 20, marginBottom: 20 },
+  drawerHint: { fontFamily: fonts.sans, fontSize: 12, color: colors.textSoft, lineHeight: 17, marginTop: -8, marginBottom: 16 },
   drawerError: { fontFamily: fonts.sans, fontSize: 12.5, color: colors.danger, marginBottom: 8, lineHeight: 18 },
+
+  roleToggle: { flexDirection: 'row', backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, padding: 3, gap: 2, marginBottom: 18, alignSelf: 'flex-start' },
+  roleToggleOption: { paddingVertical: 8, paddingHorizontal: 18, borderRadius: radius.pill },
+  roleToggleOptionActive: { backgroundColor: colors.accent },
+  roleToggleText: { fontFamily: fonts.sansSemiBold, fontSize: 12.5, color: colors.textSoft },
+  roleToggleTextActive: { color: colors.accentText },
 
   detailHead: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 22 },
   detailName: { fontFamily: fonts.serifMedium, fontSize: 18, color: colors.text, marginBottom: 6 },

@@ -3,7 +3,9 @@ import { supabase } from "../config/supabase.js";
 
 export interface AuthedUser {
   id: string;
-  role: "player" | "owner" | "manager" | "admin";
+  // 'ceo' is a full admin-equivalent account, just a distinct label — see
+  // requireAdmin() in admin.controller.ts for the one place that matters.
+  role: "player" | "owner" | "manager" | "admin" | "ceo";
   name: string;
   // Nullable since the manager_phone_accounts migration — a phone-invited
   // manager may have no email on file at all.

@@ -4,7 +4,7 @@ import { Booking } from './bookingsApi';
 
 export type AdminUser = {
   id: string;
-  role: 'player' | 'owner' | 'manager' | 'admin';
+  role: 'player' | 'owner' | 'manager' | 'admin' | 'ceo';
   name: string;
   email: string;
   phone: string | null;
@@ -62,13 +62,13 @@ export type AdminVenue = {
 
 export type AdminStats = {
   totalUsers: number;
-  usersByRole: { player: number; owner: number; manager: number; admin: number };
+  usersByRole: { player: number; owner: number; manager: number; admin: number; ceo: number };
   totalVenues: number;
   venuesByStatus: { pending: number; verified: number; suspended: number };
   deviceBreakdown: { mobile: number; tablet: number; desktop: number; other: number };
 };
 
-export type AdminInput = { name: string; email: string; password: string; phone?: string };
+export type AdminInput = { name: string; email: string; password: string; phone?: string; role?: 'admin' | 'ceo' };
 
 export type LogLevel = 'info' | 'warn' | 'error';
 

@@ -136,7 +136,7 @@ export async function confirmPayment(req: Request, res: Response) {
       .single();
     if (venueError || !venue) return res.status(500).json({ error: "Payment confirmed but the venue could not be updated." });
 
-    const { data: admins } = await supabase.from("users").select("id").eq("role", "admin");
+    const { data: admins } = await supabase.from("users").select("id").in("role", ["admin", "ceo"]);
     for (const admin of admins ?? []) {
       await notify({
         userId: admin.id,

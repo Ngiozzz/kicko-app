@@ -4,20 +4,25 @@ import { getLogs, type LogLevel } from "../services/logs.service.js";
 import { notify } from "../services/notifications.service.js";
 import { sendEmail, sendTemplatedEmail, renderEmailTemplate, SAMPLE_VARS, FALLBACK_TEMPLATES, FRONTEND_URL, SUPPORT_EMAIL_URL, type EmailTemplateKey } from "../services/email.service.js";
 
+// 'ceo' is a full admin-equivalent account — same access, distinct label.
+function isAdminRole(role: string): boolean {
+  return role === "admin" || role === "ceo";
+}
+
 function requireAdmin(req: Request, res: Response): boolean {
-  if (req.user!.role !== "admin") {
+  if (!isAdminRole(req.user!.role)) {
     res.status(403).json({ error: "Admin access only." });
     return false;
   }
   return true;
 }
 
-/** How many admin accounts are currently active (not suspended) — the floor a suspend/delete can't cross. */
+/** How many admin/ceo accounts are currently active (not suspended) — the floor a suspend/delete can't cross. */
 async function countActiveAdmins(): Promise<number> {
   const { count } = await supabase
     .from("users")
     .select("id", { count: "exact", head: true })
-    .eq("role", "admin")
+    .in("role", ["admin", "ceo"])
     .eq("suspended", false);
   return count ?? 0;
 }
@@ -34,7 +39,7 @@ export async function getStats(req: Request, res: Response) {
 
   if (usersError || venuesError || deviceError) return res.status(500).json({ error: "Could not load platform stats." });
 
-  const usersByRole = { player: 0, owner: 0, manager: 0, admin: 0 };
+  const usersByRole = { player: 0, owner: 0, manager: 0, admin: 0, ceo: 0 };
   for (const u of users!) usersByRole[u.role as keyof typeof usersByRole]++;
 
   const venuesByStatus = { pending: 0, verified: 0, suspended: 0 };
@@ -64,7 +69,7 @@ export async function listUsers(req: Request, res: Response) {
     .order("created_at", { ascending: false });
 
   const role = req.query.role;
-  if (typeof role === "string" && ["player", "owner", "manager", "admin"].includes(role)) {
+  if (typeof role === "string" && ["player", "owner", "manager", "admin", "ceo"].includes(role)) {
     query = query.eq("role", role);
   }
 
@@ -143,7 +148,7 @@ export async function setUserSuspended(req: Request, res: Response) {
 
   if (suspended) {
     const { data: target } = await supabase.from("users").select("role, suspended").eq("id", req.params.id).maybeSingle();
-    if (target?.role === "admin" && !target.suspended && (await countActiveAdmins()) <= 1) {
+    if (target && isAdminRole(target.role) && !target.suspended && (await countActiveAdmins()) <= 1) {
       return res.status(400).json({ error: "You can't suspend the last remaining admin." });
     }
   }
@@ -325,19 +330,20 @@ export async function deleteVenue(req: Request, res: Response) {
 const USER_COLUMNS = "id, role, name, email, phone, suspended, owner_id, avatar_url, created_at";
 
 /**
- * Provisions a new admin account — the only way one gets created, since
- * admin is deliberately excluded from public sign-up (see
+ * Provisions a new admin or ceo account — the only way one gets created,
+ * since both are deliberately excluded from public sign-up (see
  * ..._harden_signup_role.sql). Two-step, same as the original test-account
  * script: create the auth user with the service-role client (bypassing the
- * signup trigger's role trust entirely), then set role='admin' directly.
+ * signup trigger's role trust entirely), then set the role directly.
  */
 export async function createAdmin(req: Request, res: Response) {
   if (!requireAdmin(req, res)) return;
 
-  const { name, email, password, phone } = req.body;
+  const { name, email, password, phone, role } = req.body;
   if (typeof name !== "string" || !name.trim()) return res.status(400).json({ error: "Name is required." });
   if (typeof email !== "string" || !/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error: "A valid email is required." });
   if (typeof password !== "string" || password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters." });
+  const accountRole = role === "ceo" ? "ceo" : "admin";
 
   const { data: created, error: createError } = await supabase.auth.admin.createUser({
     email,
@@ -349,7 +355,7 @@ export async function createAdmin(req: Request, res: Response) {
 
   const { data, error } = await supabase
     .from("users")
-    .update({ role: "admin", phone: phone || null })
+    .update({ role: accountRole, phone: phone || null })
     .eq("id", created.user.id)
     .select(USER_COLUMNS)
     .single();
@@ -357,12 +363,12 @@ export async function createAdmin(req: Request, res: Response) {
   if (error || !data) {
     // Roll back the auth user rather than leave an orphaned account stuck as 'player'.
     await supabase.auth.admin.deleteUser(created.user.id);
-    return res.status(500).json({ error: "Could not provision this admin account." });
+    return res.status(500).json({ error: "Could not provision this account." });
   }
   res.status(201).json({ user: data });
 }
 
-/** Deletes an admin account entirely — scoped to admin-role targets only. */
+/** Deletes an admin/ceo account entirely — scoped to admin-role targets only. */
 export async function deleteAdmin(req: Request, res: Response) {
   if (!requireAdmin(req, res)) return;
 
@@ -372,7 +378,7 @@ export async function deleteAdmin(req: Request, res: Response) {
 
   const { data: target } = await supabase.from("users").select("role, suspended").eq("id", req.params.id).maybeSingle();
   if (!target) return res.status(404).json({ error: "User not found." });
-  if (target.role !== "admin") return res.status(400).json({ error: "Only admin accounts can be deleted here." });
+  if (!isAdminRole(target.role)) return res.status(400).json({ error: "Only admin/ceo accounts can be deleted here." });
   if (!target.suspended && (await countActiveAdmins()) <= 1) {
     return res.status(400).json({ error: "You can't delete the last remaining admin." });
   }

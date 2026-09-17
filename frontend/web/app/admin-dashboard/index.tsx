@@ -140,9 +140,9 @@ export default function AdminDashboard() {
             <View style={[styles.sideCol, isMobile && styles.sideColMobile]}>
               <View style={styles.sideCard}>
                 <Text style={styles.sideCardTitle}>Users by role</Text>
-                {(['player', 'owner', 'manager', 'admin'] as const).map((role, i, arr) => (
+                {(['player', 'owner', 'manager', 'admin', 'ceo'] as const).map((role, i, arr) => (
                   <View key={role} style={[styles.roleRow, i === arr.length - 1 && styles.roleRowLast]}>
-                    <Text style={styles.roleLabel}>{role.charAt(0).toUpperCase() + role.slice(1)}s</Text>
+                    <Text style={styles.roleLabel}>{role === 'ceo' ? 'CEOs' : `${role.charAt(0).toUpperCase() + role.slice(1)}s`}</Text>
                     <Text style={styles.roleValue}>{stats.usersByRole[role]}</Text>
                   </View>
                 ))}
