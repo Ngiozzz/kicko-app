@@ -4,13 +4,14 @@ import { Link, router, usePathname } from 'expo-router';
 import { colors, fonts, radius } from '@kicko/shared';
 import { LogoMark } from '../Logo';
 import { supabase } from '@kicko/shared';
-import { HomeIcon, ManagersIcon, PaymentsIcon, SearchIcon, VenuesIcon } from '../owner/icons';
+import { FinanceIcon, HomeIcon, ManagersIcon, PaymentsIcon, SearchIcon, VenuesIcon } from '../owner/icons';
 import { BreadcrumbProvider, useBreadcrumbOverride } from '../../lib/breadcrumbContext';
 import { NotifBell } from '../NotifBell';
 import { useIsMobile } from '../../lib/useIsMobile';
 import { MobileTabBar, MOBILE_TAB_BAR_HEIGHT } from '../MobileTabBar';
 import { MobileAccountMenu } from '../MobileAccountMenu';
 import { Avatar } from '../Avatar';
+import { useAdminRole } from '../../lib/adminRoleContext';
 
 type NavItem = { label: string; href: string; icon: (p: { size?: number; color: string }) => ReactElement };
 
@@ -20,6 +21,10 @@ const MANAGE_ITEMS: NavItem[] = [
   { label: 'Venues', href: '/admin-dashboard/venues', icon: VenuesIcon },
   { label: 'Payments', href: '/admin-dashboard/payments', icon: PaymentsIcon },
 ];
+// ceo-only — see admin.controller.ts#getFinanceOverview. Kept separate
+// from MANAGE_ITEMS so a plain admin never sees the link at all, not just
+// gets a 403 if they guess the URL (finance.tsx guards that case too).
+const CEO_ITEMS: NavItem[] = [{ label: 'Finance', href: '/admin-dashboard/finance', icon: FinanceIcon }];
 
 // Same breadcrumb-as-real-links convention as OwnerShell — see
 // Kicko/docs/admin.html / users.html / venues.html's chrome.
@@ -30,6 +35,7 @@ const BREADCRUMBS: Record<string, Crumb[]> = {
   '/admin-dashboard/users': [{ label: 'Dashboard', href: '/admin-dashboard' }, { label: 'Users' }],
   '/admin-dashboard/venues': [{ label: 'Dashboard', href: '/admin-dashboard' }, { label: 'Venues' }],
   '/admin-dashboard/payments': [{ label: 'Dashboard', href: '/admin-dashboard' }, { label: 'Payments' }],
+  '/admin-dashboard/finance': [{ label: 'Dashboard', href: '/admin-dashboard' }, { label: 'Finance' }],
   '/admin-dashboard/payments/transactions': [
     { label: 'Dashboard', href: '/admin-dashboard' },
     { label: 'Payments', href: '/admin-dashboard/payments' },
@@ -174,6 +180,8 @@ function AdminShellInner({
   const crumbs = useBreadcrumbOverride(pathname) ?? breadcrumbFor(pathname);
   const settingsActive = isActive(pathname, '/admin-dashboard/settings');
   const isMobile = useIsMobile();
+  const role = useAdminRole();
+  const isCeo = role === 'ceo';
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -215,6 +223,17 @@ function AdminShellInner({
               <NavLink key={item.href} item={item} active={isActive(pathname, item.href)} />
             ))}
           </View>
+
+          {isCeo && (
+            <>
+              <Text style={[styles.navLabel, { marginTop: 14 }]}>Business</Text>
+              <View style={styles.navList}>
+                {CEO_ITEMS.map((item) => (
+                  <NavLink key={item.href} item={item} active={isActive(pathname, item.href)} />
+                ))}
+              </View>
+            </>
+          )}
         </ScrollView>
 
         <View style={styles.sidebarFoot}>
@@ -291,7 +310,7 @@ function AdminShellInner({
       </View>
 
       {isMobile && (
-        <MobileTabBar items={[...OVERVIEW_ITEMS, ...MANAGE_ITEMS]} isActive={(href) => isActive(pathname, href)} />
+        <MobileTabBar items={[...OVERVIEW_ITEMS, ...MANAGE_ITEMS, ...(isCeo ? CEO_ITEMS : [])]} isActive={(href) => isActive(pathname, href)} />
       )}
     </View>
   );

@@ -73,6 +73,15 @@ export function TournamentIcon({ size = 17, color }: IconProps) {
   );
 }
 
+export function FinanceIcon({ size = 17, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M3.5 18 9 11.5l4 3L20.5 6" />
+      <Path d="M15 6h5.5v5.5" />
+    </Svg>
+  );
+}
+
 export function SettingsIcon({ size = 17, color }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
