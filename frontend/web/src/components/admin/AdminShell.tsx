@@ -36,6 +36,11 @@ const BREADCRUMBS: Record<string, Crumb[]> = {
   '/admin-dashboard/venues': [{ label: 'Dashboard', href: '/admin-dashboard' }, { label: 'Venues' }],
   '/admin-dashboard/payments': [{ label: 'Dashboard', href: '/admin-dashboard' }, { label: 'Payments' }],
   '/admin-dashboard/finance': [{ label: 'Dashboard', href: '/admin-dashboard' }, { label: 'Finance' }],
+  '/admin-dashboard/finance/venues': [
+    { label: 'Dashboard', href: '/admin-dashboard' },
+    { label: 'Finance', href: '/admin-dashboard/finance' },
+    { label: 'Revenue by venue' },
+  ],
   '/admin-dashboard/payments/transactions': [
     { label: 'Dashboard', href: '/admin-dashboard' },
     { label: 'Payments', href: '/admin-dashboard/payments' },

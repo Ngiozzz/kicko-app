@@ -93,6 +93,10 @@ export type PaymentsOverview = { totalCollected: number; paidOut: number; refund
 // Kicko's own margin (the service fee), never paid out or refunded.
 export type FinanceOverview = { totalRevenue: number; platformProfit: number; totalPayouts: number; totalRefunded: number };
 
+// CEO-only — see admin.controller.ts#getFinanceByVenue. Sorted by
+// platformProfit descending.
+export type VenueFinance = { venueId: string; venueName: string; bookings: number; totalRevenue: number; platformProfit: number };
+
 export type AdminSession = {
   id: string;
   phase: 'joining' | 'paying' | 'awaiting_decision' | 'funded' | 'cancelled';
@@ -129,6 +133,7 @@ export const adminApi = {
   listLogs: (level?: LogLevel) => apiFetch<{ logs: ServerLog[] }>(`/api/admin/logs${level ? `?level=${level}` : ''}`),
   paymentsOverview: () => apiFetch<PaymentsOverview>('/api/admin/payments/overview'),
   financeOverview: () => apiFetch<FinanceOverview>('/api/admin/finance'),
+  financeByVenue: () => apiFetch<{ venues: VenueFinance[] }>('/api/admin/finance/venues'),
   listTransactions: () => apiFetch<{ bookings: Booking[] }>('/api/admin/payments/transactions'),
   listSessions: () => apiFetch<{ sessions: AdminSession[] }>('/api/admin/payments/sessions'),
 };

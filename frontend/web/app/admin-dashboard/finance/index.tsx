@@ -1,9 +1,9 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Link, useFocusEffect } from 'expo-router';
 import { colors, fonts, radius } from '@kicko/shared';
-import { adminApi, FinanceOverview } from '../../src/lib/adminApi';
-import { useAdminRole } from '../../src/lib/adminRoleContext';
+import { adminApi, FinanceOverview } from '../../../src/lib/adminApi';
+import { useAdminRole } from '../../../src/lib/adminRoleContext';
 
 function StatCard({ label, value, sub, priority }: { label: string; value: string; sub?: string; priority?: boolean }) {
   return (
@@ -15,11 +15,25 @@ function StatCard({ label, value, sub, priority }: { label: string; value: strin
   );
 }
 
+function NavCard({ title, description, href }: { title: string; description: string; href: string }) {
+  return (
+    <Link href={href} asChild>
+      <Pressable style={styles.navCard}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.navCardTitle}>{title}</Text>
+          <Text style={styles.navCardDesc}>{description}</Text>
+        </View>
+        <Text style={styles.navCardArrow}>→</Text>
+      </Pressable>
+    </Link>
+  );
+}
+
 function kes(amount: number): string {
   return `KES ${amount.toLocaleString('en-KE', { maximumFractionDigits: 0 })}`;
 }
 
-// This whole screen is reachable only via a nav link CEOs see (see
+// This whole sector is reachable only via a nav link CEOs see (see
 // AdminShell's CEO_ITEMS) — this guard just covers a plain admin who
 // guesses the URL directly. The backend enforces the real boundary (see
 // admin.controller.ts#getFinanceOverview).
@@ -74,6 +88,19 @@ export default function AdminFinance() {
           <StatCard label="Refunded" value={kes(finance.totalRefunded)} sub="Returned to players" />
         </View>
       )}
+
+      <Text style={styles.secTitle}>Go to</Text>
+
+      <NavCard
+        title="Revenue by venue"
+        description="Which venues are actually driving Kicko's revenue and profit, ranked highest first."
+        href="/admin-dashboard/finance/venues"
+      />
+      <NavCard
+        title="Transactions"
+        description="Every booking payment, payout, and refund, with the service fee — Kicko's cut — broken out per line."
+        href="/admin-dashboard/payments/transactions"
+      />
     </View>
   );
 }
@@ -92,6 +119,25 @@ const styles = StyleSheet.create({
   statLabelAccent: { color: colors.accent },
   statValue: { fontFamily: fonts.serif, fontSize: 26, color: colors.text },
   statSub: { fontFamily: fonts.sans, fontSize: 12, color: colors.textSoft, marginTop: 6 },
+
+  secTitle: { fontFamily: fonts.serifMedium, fontSize: 18, color: colors.text, marginTop: 36, marginBottom: 16 },
+
+  navCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    paddingVertical: 20,
+    paddingHorizontal: 22,
+    marginBottom: 14,
+    gap: 16,
+  },
+  navCardTitle: { fontFamily: fonts.serifMedium, fontSize: 15, color: colors.text, marginBottom: 4 },
+  navCardDesc: { fontFamily: fonts.sans, fontSize: 12.5, color: colors.textSoft, lineHeight: 18 },
+  navCardArrow: { color: colors.accent, fontSize: 20, flexShrink: 0 },
 
   notice: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 28, marginTop: 22, maxWidth: 480 },
   noticeTitle: { fontFamily: fonts.serifMedium, fontSize: 17, color: colors.text, marginBottom: 8 },

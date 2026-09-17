@@ -546,6 +546,35 @@ export async function getFinanceOverview(req: Request, res: Response) {
   res.status(200).json({ totalRevenue, platformProfit, totalPayouts, totalRefunded });
 }
 
+/**
+ * CEO-only. The same paid-bookings pool getFinanceOverview sums
+ * platform-wide, re-grouped by venue and sorted by profit descending — the
+ * "which venues actually make Kicko money" drill-down off the Finance page.
+ */
+export async function getFinanceByVenue(req: Request, res: Response) {
+  if (req.user!.role !== "ceo") {
+    return res.status(403).json({ error: "Only a CEO can view business finances." });
+  }
+
+  const { data: bookings, error } = await supabase
+    .from("bookings")
+    .select("venue_id, total_amount, service_fee, payment_status, venue:venues(name)")
+    .returns<{ venue_id: string; total_amount: number; service_fee: number; payment_status: string; venue: { name: string } | null }[]>();
+  if (error) return res.status(500).json({ error: "Could not load the venue breakdown." });
+
+  const byVenue = new Map<string, { venueId: string; venueName: string; bookings: number; totalRevenue: number; platformProfit: number }>();
+  for (const b of bookings ?? []) {
+    if (b.payment_status !== "paid" && b.payment_status !== "partially_refunded") continue;
+    const row = byVenue.get(b.venue_id) ?? { venueId: b.venue_id, venueName: b.venue?.name ?? "Unknown venue", bookings: 0, totalRevenue: 0, platformProfit: 0 };
+    row.bookings += 1;
+    row.totalRevenue += Number(b.total_amount);
+    row.platformProfit += Number(b.service_fee);
+    byVenue.set(b.venue_id, row);
+  }
+
+  res.status(200).json({ venues: [...byVenue.values()].sort((a, b) => b.platformProfit - a.platformProfit) });
+}
+
 const TRANSACTION_COLUMNS =
   "*, venue:venues(id, name, location, sport, photos, price_peak, price_off_peak, owner_id, status), player:users!bookings_player_id_fkey(id, name, email, phone), payouts(status, amount), refunds(status, amount, pct)";
 
