@@ -43,68 +43,66 @@ function SocialLink({ href, label, Icon }: { href: string; label: string; Icon: 
 
 export function Footer({ onSelectRole }: { onSelectRole: (role: Role) => void }) {
   const { width } = useWindowDimensions();
-  const narrow = width < 700;
+  const narrow = width < 720;
 
   return (
     <View style={styles.root}>
-      <View style={[styles.topRow, narrow && styles.topRowNarrow]}>
-        <View style={styles.brandCol}>
-          <Logo />
-          <Text style={styles.tagline}>Multi-sport venue booking, one dashboard.</Text>
-          <View style={styles.socialRow}>
-            {SOCIAL_LINKS.map((s) => (
-              <SocialLink key={s.key} href={s.href} label={s.label} Icon={s.Icon} />
-            ))}
+      <View style={styles.inner}>
+        <View style={[styles.topRow, narrow && styles.topRowNarrow]}>
+          <View style={[styles.brandCol, narrow && styles.brandColNarrow]}>
+            <Logo />
+            <Text style={styles.tagline}>Multi-sport venue booking, one dashboard.</Text>
+            <View style={styles.socialRow}>
+              {SOCIAL_LINKS.map((s) => (
+                <SocialLink key={s.key} href={s.href} label={s.label} Icon={s.Icon} />
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.linkCols}>
+            <View style={styles.linkCol}>
+              <Text style={styles.colHeading}>Product</Text>
+              {ROLES.map((role) => (
+                <Pressable key={role} onPress={() => onSelectRole(role)}>
+                  <Text style={styles.link}>{roleContent[role].tabLabel}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <View style={styles.linkCol}>
+              <Text style={styles.colHeading}>Legal</Text>
+              {LEGAL_LINKS.map((l) => (
+                <Link key={l.href} href={l.href} style={styles.link}>
+                  {l.label}
+                </Link>
+              ))}
+            </View>
           </View>
         </View>
 
-        <View style={styles.linkCols}>
-          <View style={styles.linkCol}>
-            <Text style={styles.colHeading}>Product</Text>
-            {ROLES.map((role) => (
-              <Pressable key={role} onPress={() => onSelectRole(role)}>
-                <Text style={styles.link}>{roleContent[role].tabLabel}</Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <View style={styles.linkCol}>
-            <Text style={styles.colHeading}>Legal</Text>
-            {LEGAL_LINKS.map((l) => (
-              <Link key={l.href} href={l.href} style={styles.link}>
-                {l.label}
-              </Link>
-            ))}
-          </View>
+        <View style={styles.bottomBar}>
+          <Text style={styles.footerText}>© {new Date().getFullYear()} Kicko. All rights reserved.</Text>
+          {/* Unlabeled on purpose — staff already know it's here; nobody else needs to. */}
+          <Link href="/admin" asChild>
+            <Pressable style={styles.adminDot} accessibilityLabel="Staff sign in">
+              <View style={styles.adminDotMark} />
+            </Pressable>
+          </Link>
         </View>
-      </View>
-
-      <View style={styles.bottomBar}>
-        <Text style={styles.footerText}>© {new Date().getFullYear()} Kicko</Text>
-        <Link href="/admin" style={styles.adminLink}>
-          Admin
-        </Link>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { borderTopWidth: 1, borderTopColor: colors.border, marginTop: 8 },
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    maxWidth: 1160,
-    width: '100%',
-    alignSelf: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 48,
-    paddingBottom: 32,
-    gap: 40,
-  },
-  topRowNarrow: { flexDirection: 'column' },
+  root: { backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border, marginTop: 8 },
+  inner: { maxWidth: 1040, width: '100%', alignSelf: 'center', paddingHorizontal: 24 },
 
-  brandCol: { maxWidth: 260, gap: 10 },
+  topRow: { flexDirection: 'row', paddingTop: 56, paddingBottom: 40, gap: 56 },
+  topRowNarrow: { flexDirection: 'column', gap: 36 },
+
+  brandCol: { flex: 1.1, maxWidth: 300, gap: 12 },
+  brandColNarrow: { maxWidth: '100%' },
   tagline: { fontFamily: fonts.sans, fontSize: 13, lineHeight: 19, color: colors.textSoft },
   socialRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
   socialIconWrap: {
@@ -117,8 +115,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  linkCols: { flexDirection: 'row', gap: 56 },
-  linkCol: { gap: 12 },
+  linkCols: { flex: 1, flexDirection: 'row', gap: 40 },
+  linkCol: { flex: 1, gap: 12 },
   colHeading: {
     fontFamily: fonts.sansBold,
     fontSize: 11.5,
@@ -133,14 +131,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    maxWidth: 1160,
-    width: '100%',
-    alignSelf: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 20,
+    paddingVertical: 18,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
   footerText: { fontFamily: fonts.sans, fontSize: 12.5, color: colors.textSoft },
-  adminLink: { fontFamily: fonts.sans, fontSize: 12, color: colors.textSoft, opacity: 0.55 },
+  adminDot: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  adminDotMark: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: colors.border },
 });
