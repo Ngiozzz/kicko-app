@@ -1,8 +1,10 @@
+import { ReactElement } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Link } from 'expo-router';
-import { colors, fonts } from '@kicko/shared';
+import { colors, fonts, radius } from '@kicko/shared';
 import { Logo } from './Logo';
 import { Role, roleContent } from '../content/roleContent';
+import { FacebookIcon, InstagramIcon, XIcon } from './SocialIcons';
 
 const ROLES: Role[] = ['player', 'owner', 'manager'];
 
@@ -15,6 +17,30 @@ const LEGAL_LINKS: { href: '/privacy' | '/terms'; label: string }[] = [
   { href: '/terms', label: 'Terms of Service' },
 ];
 
+// Real profile URLs aren't live yet — same reasoning as LEGAL_LINKS above:
+// ship the row now so it doesn't need rebuilding once the accounts exist,
+// just filled in here. An empty href renders inert (see SocialLink) rather
+// than a dead link out to nowhere.
+const SOCIAL_LINKS: { key: string; label: string; href: string; Icon: (p: { size?: number; color: string }) => ReactElement }[] = [
+  { key: 'instagram', label: 'Instagram', href: '', Icon: InstagramIcon },
+  { key: 'x', label: 'X (Twitter)', href: '', Icon: XIcon },
+  { key: 'facebook', label: 'Facebook', href: '', Icon: FacebookIcon },
+];
+
+function SocialLink({ href, label, Icon }: { href: string; label: string; Icon: (p: { size?: number; color: string }) => ReactElement }) {
+  const icon = (
+    <View style={styles.socialIconWrap}>
+      <Icon size={16} color={colors.textSoft} />
+    </View>
+  );
+  if (!href) return icon;
+  return (
+    <Link href={href} target="_blank" accessibilityLabel={label}>
+      {icon}
+    </Link>
+  );
+}
+
 export function Footer({ onSelectRole }: { onSelectRole: (role: Role) => void }) {
   const { width } = useWindowDimensions();
   const narrow = width < 700;
@@ -25,6 +51,11 @@ export function Footer({ onSelectRole }: { onSelectRole: (role: Role) => void })
         <View style={styles.brandCol}>
           <Logo />
           <Text style={styles.tagline}>Multi-sport venue booking, one dashboard.</Text>
+          <View style={styles.socialRow}>
+            {SOCIAL_LINKS.map((s) => (
+              <SocialLink key={s.key} href={s.href} label={s.label} Icon={s.Icon} />
+            ))}
+          </View>
         </View>
 
         <View style={styles.linkCols}>
@@ -75,6 +106,16 @@ const styles = StyleSheet.create({
 
   brandCol: { maxWidth: 260, gap: 10 },
   tagline: { fontFamily: fonts.sans, fontSize: 13, lineHeight: 19, color: colors.textSoft },
+  socialRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  socialIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   linkCols: { flexDirection: 'row', gap: 56 },
   linkCol: { gap: 12 },
