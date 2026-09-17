@@ -130,7 +130,21 @@ function UserActions({ user, isSelf, isLastActiveAdmin, busyId, confirming, onSu
   );
 }
 
-function AddAdminDrawer({ visible, onClose, onCreated }: { visible: boolean; onClose: () => void; onCreated: (user: AdminUser) => void }) {
+function AddAdminDrawer({
+  visible,
+  onClose,
+  onCreated,
+  canCreateCeo,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onCreated: (user: AdminUser) => void;
+  // Only an existing CEO account can mint another one — see
+  // admin.controller.ts#createAdmin's matching server-side check, which
+  // is the real enforcement; this just keeps a plain admin from being
+  // offered an option the backend would reject anyway.
+  canCreateCeo: boolean;
+}) {
   const [role, setRole] = useState<'admin' | 'ceo'>('admin');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -180,14 +194,16 @@ function AddAdminDrawer({ visible, onClose, onCreated }: { visible: boolean; onC
         They'll get full admin access — every venue, every account, platform-wide. Only add people you'd trust with that.
       </Text>
 
-      <View style={styles.roleToggle}>
-        <Pressable onPress={() => setRole('admin')} style={[styles.roleToggleOption, role === 'admin' && styles.roleToggleOptionActive]}>
-          <Text style={[styles.roleToggleText, role === 'admin' && styles.roleToggleTextActive]}>Admin</Text>
-        </Pressable>
-        <Pressable onPress={() => setRole('ceo')} style={[styles.roleToggleOption, role === 'ceo' && styles.roleToggleOptionActive]}>
-          <Text style={[styles.roleToggleText, role === 'ceo' && styles.roleToggleTextActive]}>CEO</Text>
-        </Pressable>
-      </View>
+      {canCreateCeo && (
+        <View style={styles.roleToggle}>
+          <Pressable onPress={() => setRole('admin')} style={[styles.roleToggleOption, role === 'admin' && styles.roleToggleOptionActive]}>
+            <Text style={[styles.roleToggleText, role === 'admin' && styles.roleToggleTextActive]}>Admin</Text>
+          </Pressable>
+          <Pressable onPress={() => setRole('ceo')} style={[styles.roleToggleOption, role === 'ceo' && styles.roleToggleOptionActive]}>
+            <Text style={[styles.roleToggleText, role === 'ceo' && styles.roleToggleTextActive]}>CEO</Text>
+          </Pressable>
+        </View>
+      )}
 
       <Field label="Full name" placeholder="Jane Doe" value={name} onChangeText={setName} />
       <Field label="Email" placeholder="jane@kicko.app" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
@@ -354,6 +370,7 @@ function UserDetailDrawer({ user, onClose }: { user: AdminUser | null; onClose: 
 export default function AdminUsers() {
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [selfId, setSelfId] = useState<string | null>(null);
+  const [selfRole, setSelfRole] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -372,8 +389,11 @@ export default function AdminUsers() {
   }, []);
 
   useEffect(() => {
-    apiFetch<{ user: { id: string } }>('/api/account/me')
-      .then(({ user }) => setSelfId(user.id))
+    apiFetch<{ user: { id: string; role: string } }>('/api/account/me')
+      .then(({ user }) => {
+        setSelfId(user.id);
+        setSelfRole(user.role);
+      })
       .catch(() => {});
   }, []);
 
@@ -624,6 +644,7 @@ export default function AdminUsers() {
         visible={addOpen}
         onClose={() => setAddOpen(false)}
         onCreated={(user) => setUsers((prev) => (prev ? [user, ...prev] : [user]))}
+        canCreateCeo={selfRole === 'ceo'}
       />
       <UserDetailDrawer user={detailUser} onClose={() => setDetailUser(null)} />
     </View>

@@ -344,6 +344,11 @@ export async function createAdmin(req: Request, res: Response) {
   if (typeof email !== "string" || !/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error: "A valid email is required." });
   if (typeof password !== "string" || password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters." });
   const accountRole = role === "ceo" ? "ceo" : "admin";
+  // Only an existing ceo can mint another one — a plain admin can still
+  // provision other admins, just not itself widen the top of the hierarchy.
+  if (accountRole === "ceo" && req.user!.role !== "ceo") {
+    return res.status(403).json({ error: "Only a CEO can create another CEO account." });
+  }
 
   const { data: created, error: createError } = await supabase.auth.admin.createUser({
     email,
