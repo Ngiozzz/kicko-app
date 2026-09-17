@@ -251,6 +251,41 @@ export async function setVenueStatus(req: Request, res: Response) {
   res.status(200).json({ venue: data });
 }
 
+/**
+ * Lets admin add/replace a venue's photos directly — for owners who paid
+ * the KES 500 photo-assist fee (see venues.controller.ts#requestVenuePhotoAssist)
+ * or who just asked for help out of band. Clears photo_assist_requested_at
+ * so the venue drops off the admin "photo help requested" queue either way.
+ */
+export async function setVenuePhotos(req: Request, res: Response) {
+  if (!requireAdmin(req, res)) return;
+
+  const { photos } = req.body;
+  if (!Array.isArray(photos) || photos.some((p) => typeof p !== "string") || photos.length > 5) {
+    return res.status(400).json({ error: "photos must be a list of up to 5 URLs." });
+  }
+
+  const { data, error } = await supabase
+    .from("venues")
+    .update({ photos, photo_assist_requested_at: null })
+    .eq("id", req.params.id)
+    .select("*, owner:owner_id(id, name, email)")
+    .maybeSingle();
+
+  if (error) return res.status(500).json({ error: "Could not update this venue's photos." });
+  if (!data) return res.status(404).json({ error: "Venue not found." });
+
+  await notify({
+    userId: data.owner_id,
+    type: "venue_photos_updated",
+    title: "Venue photos updated",
+    body: `The Kicko team updated the photos for ${data.name}.`,
+    link: `/owner/venues/${data.id}/edit`,
+  });
+
+  res.status(200).json({ venue: data });
+}
+
 /** Removes a review — moderation only (abusive or spam content, or a flag the admin agrees with). */
 export async function deleteReview(req: Request, res: Response) {
   if (!requireAdmin(req, res)) return;

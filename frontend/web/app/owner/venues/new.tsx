@@ -9,6 +9,7 @@ import { venuesApi } from '../../../src/lib/venuesApi';
 const CHECKLIST = [
   "New listings are reviewed before they go live.",
   'Add photos — listings with photos get more attention.',
+  "Can't add photos yourself? Once submitted, ask admin to add them for KES 500 from Edit venue.",
   "You can edit pricing and amenities anytime after it's live.",
 ];
 

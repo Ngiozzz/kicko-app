@@ -2,10 +2,12 @@ import type { Request, Response } from "express";
 import { supabase } from "../config/supabase.js";
 import { notify } from "../services/notifications.service.js";
 import { sendTemplatedEmail, FRONTEND_URL } from "../services/email.service.js";
+import { initiateStkPush } from "../services/stk.service.js";
 
 const SPORTS = ["football", "basketball", "tennis", "padel", "volleyball"];
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const PAYOUT_TYPES = ["phone", "paybill", "till"];
+const PHOTO_ASSIST_FEE = 500;
 
 // Mirrors the admin venue-review page's own fmtTime (24h "HH:MM" -> "6:00 AM").
 function fmtTime(t: string): string {
@@ -278,6 +280,52 @@ export async function updateVenue(req: Request, res: Response) {
   if (error) return res.status(500).json({ error: "Could not update venue." });
   if (!data) return res.status(404).json({ error: "Venue not found." });
   res.status(200).json({ venue: data });
+}
+
+/**
+ * Starts a flat KES 500 STK push for an owner who wants admin to add photos
+ * to their venue instead of uploading them directly (see VenuePhotoGallery
+ * on the create/edit form). Same shape as every other paid action in this
+ * backend: initiate STK, insert a pending payments row, let the client
+ * confirm it (payments.controller.ts#confirmPayment flags the venue for
+ * admin once it succeeds).
+ */
+export async function requestVenuePhotoAssist(req: Request, res: Response) {
+  if (req.user!.role !== "owner") {
+    return res.status(403).json({ error: "Only venue owners can request this." });
+  }
+
+  const { phone_number } = req.body;
+  if (typeof phone_number !== "string" || !phone_number.trim()) {
+    return res.status(400).json({ error: "phone_number is required." });
+  }
+
+  const { data: venue, error: venueError } = await supabase
+    .from("venues")
+    .select("id, name")
+    .eq("id", req.params.id)
+    .eq("owner_id", req.user!.id)
+    .maybeSingle();
+  if (venueError) return res.status(500).json({ error: "Could not load this venue." });
+  if (!venue) return res.status(404).json({ error: "Venue not found." });
+
+  const stk = await initiateStkPush({ phoneNumber: phone_number, amount: PHOTO_ASSIST_FEE, accountReference: venue.id });
+  const { data: payment, error: paymentError } = await supabase
+    .from("payments")
+    .insert({
+      venue_id: venue.id,
+      payer_id: req.user!.id,
+      purpose: "venue_photo_assist",
+      amount: PHOTO_ASSIST_FEE,
+      phone_number: phone_number.trim(),
+      provider_reference: stk.providerReference,
+      status: "pending",
+    })
+    .select()
+    .single();
+  if (paymentError) return res.status(500).json({ error: "Could not start payment." });
+
+  res.status(201).json({ payment });
 }
 
 /** Deletes a venue — must belong to the caller. */

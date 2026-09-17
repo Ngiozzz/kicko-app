@@ -8,6 +8,7 @@ import {
   listAllVenues,
   getAdminVenue,
   setVenueStatus,
+  setVenuePhotos,
   deleteVenue,
   deleteReview,
   dismissReviewFlag,
@@ -41,6 +42,7 @@ router.delete("/admins/:id", deleteAdmin);
 router.get("/venues", listAllVenues);
 router.get("/venues/:id", getAdminVenue);
 router.patch("/venues/:id/status", setVenueStatus);
+router.patch("/venues/:id/photos", setVenuePhotos);
 router.delete("/venues/:id", deleteVenue);
 router.delete("/reviews/:id", deleteReview);
 router.patch("/reviews/:id/dismiss-flag", dismissReviewFlag);

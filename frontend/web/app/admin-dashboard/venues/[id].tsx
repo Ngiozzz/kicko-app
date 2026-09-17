@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, fonts, radius } from '@kicko/shared';
 import { adminApi, AdminVenue } from '../../../src/lib/adminApi';
@@ -7,6 +7,7 @@ import { useVenueReviews } from '../../../src/lib/useVenueReviews';
 import { SportIcon, Sport } from '../../../src/components/SportIcon';
 import { StarRating } from '../../../src/components/StarRating';
 import { ReviewCard, ReviewListPanel, LoadMoreButton } from '../../../src/components/ReviewList';
+import { VenuePhotoGallery } from '../../../src/components/owner/VenuePhotoGallery';
 import { useBreadcrumb } from '../../../src/lib/breadcrumbContext';
 
 const STATUS_LABEL: Record<AdminVenue['status'], string> = {
@@ -35,6 +36,9 @@ export default function AdminVenueDetail() {
   const [deleting, setDeleting] = useState(false);
   const [removingReviewId, setRemovingReviewId] = useState<string | null>(null);
   const [dismissingFlagId, setDismissingFlagId] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [savingPhotos, setSavingPhotos] = useState(false);
+  const [photosError, setPhotosError] = useState<string | null>(null);
   const { reviews, average, count, hasMore, loading: reviewsLoading, loaded: reviewsLoaded, loadMore, removeLocal, replaceLocal } = useVenueReviews(id);
 
   async function handleRemoveReview(reviewId: string) {
@@ -66,11 +70,26 @@ export default function AdminVenueDetail() {
       try {
         const { venue } = await adminApi.getVenue(id);
         setVenue(venue);
+        setPhotos(venue.photos);
       } catch (err) {
         setLoadError(err instanceof Error ? err.message : 'Could not load this venue.');
       }
     })();
   }, [id]);
+
+  async function handleSavePhotos() {
+    setSavingPhotos(true);
+    setPhotosError(null);
+    try {
+      const { venue: updated } = await adminApi.setVenuePhotos(id, photos);
+      setVenue(updated);
+      setPhotos(updated.photos);
+    } catch (err) {
+      setPhotosError(err instanceof Error ? err.message : 'Could not save these photos.');
+    } finally {
+      setSavingPhotos(false);
+    }
+  }
 
   useBreadcrumb(
     venue ? [{ label: 'Dashboard', href: '/admin-dashboard' }, { label: 'Venues', href: '/admin-dashboard/venues' }, { label: venue.name }] : null
@@ -209,17 +228,26 @@ export default function AdminVenueDetail() {
 
       {actionError ? <Text style={styles.error}>{actionError}</Text> : null}
 
-      {venue.photos.length > 0 ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.gallery} contentContainerStyle={{ gap: 10 }}>
-          {venue.photos.map((url) => (
-            <Image key={url} source={{ uri: url }} style={styles.galleryImage} resizeMode="cover" />
-          ))}
-        </ScrollView>
-      ) : (
-        <View style={styles.noPhotos}>
-          <Text style={styles.noPhotosText}>No photos uploaded.</Text>
+      {venue.photo_assist_requested_at && (
+        <View style={styles.photoAssistBanner}>
+          <Text style={styles.photoAssistBannerText}>
+            📷 Owner paid KES 500 for admin to add photos, on {new Date(venue.photo_assist_requested_at).toLocaleDateString()}.
+          </Text>
         </View>
       )}
+
+      <View style={styles.photosHeadRow}>
+        <Text style={[styles.secTitle, { marginTop: 24, marginBottom: 0 }]}>Photos</Text>
+        {JSON.stringify(photos) !== JSON.stringify(venue.photos) && (
+          <Pressable onPress={handleSavePhotos} disabled={savingPhotos} style={styles.savePhotosBtn}>
+            <Text style={styles.savePhotosBtnText}>{savingPhotos ? 'Saving…' : 'Save photos'}</Text>
+          </Pressable>
+        )}
+      </View>
+      {photosError ? <Text style={styles.error}>{photosError}</Text> : null}
+      <View style={{ marginTop: 14, marginBottom: 8, maxWidth: 440 }}>
+        <VenuePhotoGallery ownerId={venue.owner_id} photos={photos} onChange={setPhotos} />
+      </View>
 
       <Text style={styles.secTitle}>Listing details</Text>
       <View style={styles.statsRow}>
@@ -368,10 +396,18 @@ const styles = StyleSheet.create({
   confirmRejectBtn: { alignSelf: 'flex-start', backgroundColor: colors.danger, borderRadius: radius.pill, paddingVertical: 11, paddingHorizontal: 18 },
   confirmRejectBtnText: { fontFamily: fonts.sansBold, fontSize: 13, color: '#fff' },
 
-  gallery: { marginTop: 24, marginBottom: 8 },
-  galleryImage: { width: 200, height: 140, borderRadius: radius.md, backgroundColor: colors.accentSoft },
-  noPhotos: { marginTop: 24, marginBottom: 8, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: 20, alignItems: 'center' },
-  noPhotosText: { fontFamily: fonts.sans, fontSize: 13, color: colors.textSoft },
+  photoAssistBanner: {
+    marginTop: 16,
+    backgroundColor: 'rgba(212,160,60,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(212,160,60,0.35)',
+    borderRadius: radius.md,
+    padding: 14,
+  },
+  photoAssistBannerText: { fontFamily: fonts.sansSemiBold, fontSize: 13, color: colors.text },
+  photosHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' },
+  savePhotosBtn: { backgroundColor: colors.accent, borderRadius: radius.pill, paddingVertical: 9, paddingHorizontal: 16 },
+  savePhotosBtnText: { fontFamily: fonts.sansBold, fontSize: 12.5, color: colors.accentText },
 
   secTitle: { fontFamily: fonts.serifMedium, fontSize: 17, color: colors.text, marginTop: 28, marginBottom: 14 },
   emptyText: { fontFamily: fonts.sans, fontSize: 13, color: colors.textSoft },

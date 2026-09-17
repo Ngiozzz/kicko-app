@@ -10,6 +10,7 @@ import {
   getExploreVenue,
   getExploreVenueAvailability,
   listExploreAvailability,
+  requestVenuePhotoAssist,
 } from "../controllers/venues.controller.js";
 
 const router = Router();
@@ -23,5 +24,6 @@ router.post("/", requireAuth, createVenue);
 router.get("/:id", requireAuth, getVenue);
 router.patch("/:id", requireAuth, updateVenue);
 router.delete("/:id", requireAuth, deleteVenue);
+router.post("/:id/photo-assist", requireAuth, requestVenuePhotoAssist);
 
 export default router;

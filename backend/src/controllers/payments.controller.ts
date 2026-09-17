@@ -127,5 +127,28 @@ export async function confirmPayment(req: Request, res: Response) {
     return res.status(200).json({ registration });
   }
 
+  if (payment.purpose === "venue_photo_assist") {
+    const { data: venue, error: venueError } = await supabase
+      .from("venues")
+      .update({ photo_assist_requested_at: new Date().toISOString() })
+      .eq("id", payment.venue_id)
+      .select("*")
+      .single();
+    if (venueError || !venue) return res.status(500).json({ error: "Payment confirmed but the venue could not be updated." });
+
+    const { data: admins } = await supabase.from("users").select("id").eq("role", "admin");
+    for (const admin of admins ?? []) {
+      await notify({
+        userId: admin.id,
+        type: "venue_photo_assist_requested",
+        title: "Photo upload requested",
+        body: `${venue.name} — owner paid KES ${Number(payment.amount).toLocaleString()} for admin to add photos`,
+        link: `/admin-dashboard/venues/${venue.id}`,
+      });
+    }
+
+    return res.status(200).json({ venue });
+  }
+
   res.status(200).json({ payment: { ...payment, status: "success" } });
 }

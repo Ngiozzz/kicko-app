@@ -53,6 +53,7 @@ export type AdminVenue = {
   closing_time: string;
   amenities: string[];
   photos: string[];
+  photo_assist_requested_at: string | null;
   status: 'pending' | 'verified' | 'suspended';
   rejection_reason: string | null;
   created_at: string;
@@ -112,6 +113,8 @@ export const adminApi = {
       method: 'PATCH',
       body: JSON.stringify({ status, rejection_reason }),
     }),
+  setVenuePhotos: (id: string, photos: string[]) =>
+    apiFetch<{ venue: AdminVenue }>(`/api/admin/venues/${id}/photos`, { method: 'PATCH', body: JSON.stringify({ photos }) }),
   deleteVenue: (id: string) => apiFetch<null>(`/api/admin/venues/${id}`, { method: 'DELETE' }),
   deleteReview: (id: string) => apiFetch<null>(`/api/admin/reviews/${id}`, { method: 'DELETE' }),
   dismissReviewFlag: (id: string) => apiFetch<{ review: Review }>(`/api/admin/reviews/${id}/dismiss-flag`, { method: 'PATCH' }),

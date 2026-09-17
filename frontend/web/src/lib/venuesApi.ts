@@ -1,4 +1,5 @@
 import { apiFetch } from '@kicko/shared';
+import { Payment } from './bookingsApi';
 
 export type VenueStatus = 'pending' | 'verified' | 'suspended';
 export type PayoutType = 'phone' | 'paybill' | 'till';
@@ -16,6 +17,9 @@ export type Venue = {
   amenities: string[];
   status: VenueStatus;
   photos: string[];
+  // Set once an owner pays the KES 500 photo-assist fee, cleared once admin
+  // adds the photos — see venuePhotoAssistApi below.
+  photo_assist_requested_at: string | null;
   created_at: string;
   updated_at: string;
   // Denormalized on the venues row itself (see reviews.controller.ts) so
@@ -50,7 +54,19 @@ export type VenueStats = { totalBookings: number; totalRevenue: number };
 // (see backend/src/controllers/public.controller.ts). Kept as its own type
 // instead of reusing Venue so the frontend can't accidentally assume a
 // public venue has fields it doesn't.
-export type PublicVenue = Omit<Venue, 'owner_id' | 'payout_type' | 'payout_number' | 'payout_account_ref' | 'status' | 'updated_at'>;
+export type PublicVenue = Omit<
+  Venue,
+  'owner_id' | 'payout_type' | 'payout_number' | 'payout_account_ref' | 'status' | 'updated_at' | 'photo_assist_requested_at'
+>;
+
+// Owner-initiated: pay a flat KES 500 for admin to add photos to a venue
+// instead of uploading them directly (see VenuePhotoGallery on the owner
+// form). Same request/confirm shape as every other STK-backed payment.
+export const venuePhotoAssistApi = {
+  request: (venueId: string, phone_number: string) =>
+    apiFetch<{ payment: Payment }>(`/api/venues/${venueId}/photo-assist`, { method: 'POST', body: JSON.stringify({ phone_number }) }),
+  confirm: (paymentId: string) => apiFetch<{ venue: Venue }>(`/api/payments/${paymentId}/confirm`, { method: 'POST' }),
+};
 
 export const venuesApi = {
   list: () => apiFetch<{ venues: Venue[] }>('/api/venues'),

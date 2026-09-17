@@ -4,6 +4,7 @@ import { Link, router, useLocalSearchParams } from 'expo-router';
 import { colors, fonts, radius } from '@kicko/shared';
 import { VenueForm, VenueFormValue, venueInputFromForm } from '../../../../src/components/owner/VenueForm';
 import { VenuePreviewCard, PreviewStatusTone } from '../../../../src/components/owner/VenuePreviewCard';
+import { PhotoAssistCard } from '../../../../src/components/owner/PhotoAssistCard';
 import { venuesApi, Venue, VenueStatus } from '../../../../src/lib/venuesApi';
 import { Sport } from '../../../../src/components/SportIcon';
 import { useBreadcrumb } from '../../../../src/lib/breadcrumbContext';
@@ -150,6 +151,10 @@ export default function VenueEdit() {
           <Text style={styles.secTitle}>Preview</Text>
           <VenuePreviewCard form={preview} statusLabel={status.label} statusTone={status.tone} />
           <Text style={styles.previewNote}>This is roughly how your listing appears to players right now.</Text>
+
+          <View style={{ marginTop: 20 }}>
+            <PhotoAssistCard venueId={venue.id} requested={!!venue.photo_assist_requested_at} onConfirmed={setVenue} />
+          </View>
 
           <Text style={[styles.secTitle, { marginTop: 32 }]}>Payout</Text>
           <View style={styles.payoutCard}>

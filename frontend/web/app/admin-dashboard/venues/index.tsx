@@ -5,12 +5,13 @@ import { colors, fonts, radius } from '@kicko/shared';
 import { adminApi, AdminVenue } from '../../../src/lib/adminApi';
 import { SportIcon, Sport } from '../../../src/components/SportIcon';
 
-type Filter = 'all' | 'pending' | 'verified' | 'suspended';
+type Filter = 'all' | 'pending' | 'verified' | 'suspended' | 'photo_assist';
 const TABS: { key: Filter; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'pending', label: 'Pending review' },
   { key: 'verified', label: 'Verified' },
   { key: 'suspended', label: 'Suspended' },
+  { key: 'photo_assist', label: 'Photo help requested' },
 ];
 
 const STATUS_LABEL: Record<AdminVenue['status'], string> = {
@@ -51,8 +52,9 @@ export default function AdminVenues() {
     pending: venues?.filter((v) => v.status === 'pending').length ?? 0,
     verified: venues?.filter((v) => v.status === 'verified').length ?? 0,
     suspended: venues?.filter((v) => v.status === 'suspended').length ?? 0,
+    photoAssist: venues?.filter((v) => v.photo_assist_requested_at).length ?? 0,
   };
-  const visible = venues?.filter((v) => filter === 'all' || v.status === filter) ?? [];
+  const visible = venues?.filter((v) => (filter === 'all' ? true : filter === 'photo_assist' ? !!v.photo_assist_requested_at : v.status === filter)) ?? [];
 
   return (
     <View>
@@ -87,6 +89,12 @@ export default function AdminVenues() {
           <Text style={styles.statLabel}>Suspended</Text>
           <Text style={styles.statValue}>{counts.suspended}</Text>
         </View>
+        {counts.photoAssist > 0 && (
+          <View style={[styles.statCard, styles.statCardPriority]}>
+            <Text style={[styles.statLabel, styles.statLabelAccent]}>Photo help requested</Text>
+            <Text style={[styles.statValue, styles.statLabelAccent]}>{counts.photoAssist}</Text>
+          </View>
+        )}
       </View>
 
       {error && <Text style={styles.error}>{error}</Text>}
@@ -112,7 +120,14 @@ export default function AdminVenues() {
                 <View style={[styles.venueCell, styles.colVenue]}>
                   <View style={styles.thumbSm}>{venue.photos[0] && <Image source={{ uri: venue.photos[0] }} style={StyleSheet.absoluteFill} resizeMode="cover" />}</View>
                   <View>
-                    <Text style={styles.vName}>{venue.name}</Text>
+                    <View style={styles.vNameRow}>
+                      <Text style={styles.vName}>{venue.name}</Text>
+                      {venue.photo_assist_requested_at && (
+                        <View style={styles.photoAssistBadge}>
+                          <Text style={styles.photoAssistBadgeText}>📷 Photo help</Text>
+                        </View>
+                      )}
+                    </View>
                     <View style={styles.vMeta}>
                       <SportIcon sport={venue.sport as Sport} size={12} />
                       <Text style={styles.vMetaText}>
@@ -185,7 +200,10 @@ const styles = StyleSheet.create({
 
   venueCell: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   thumbSm: { width: 40, height: 40, borderRadius: 8, backgroundColor: colors.accentSoft, overflow: 'hidden' },
+  vNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   vName: { fontFamily: fonts.sansSemiBold, fontSize: 13.5, color: colors.text },
+  photoAssistBadge: { backgroundColor: 'rgba(212,160,60,0.16)', borderRadius: radius.pill, paddingVertical: 2, paddingHorizontal: 8 },
+  photoAssistBadgeText: { fontFamily: fonts.sansSemiBold, fontSize: 10.5, color: '#96731e' },
   vMeta: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
   vMetaText: { fontFamily: fonts.sans, fontSize: 12, color: colors.textSoft, textTransform: 'capitalize' },
 
