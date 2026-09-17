@@ -77,19 +77,23 @@ type ActionProps = {
   user: AdminUser;
   isSelf: boolean;
   isLastActiveAdmin: boolean;
+  canApprove: boolean;
   busyId: string | null;
   confirming: boolean;
   onSuspend: () => void;
   onConfirmDelete: () => void;
   onRequestDelete: () => void;
   onCancelDelete: () => void;
+  onApprove: () => void;
 };
 
-// Suspend/Delete/Confirm — shared between the grid card and the table row.
-// Every handler stops propagation since both containers are themselves
-// clickable (open the detail drawer) — without it, clicking "Suspend"
-// would also pop the drawer open underneath it.
-function UserActions({ user, isSelf, isLastActiveAdmin, busyId, confirming, onSuspend, onConfirmDelete, onRequestDelete, onCancelDelete }: ActionProps) {
+const isPending = (user: AdminUser) => user.role === 'admin' && !user.admin_approved_at;
+
+// Suspend/Delete/Approve/Confirm — shared between the grid card and the
+// table row. Every handler stops propagation since both containers are
+// themselves clickable (open the detail drawer) — without it, clicking
+// "Suspend" would also pop the drawer open underneath it.
+function UserActions({ user, isSelf, isLastActiveAdmin, canApprove, busyId, confirming, onSuspend, onConfirmDelete, onRequestDelete, onCancelDelete, onApprove }: ActionProps) {
   const suspendDisabled = busyId === user.id || isSelf || isLastActiveAdmin;
   const stop = (fn: () => void) => (e: any) => {
     e.stopPropagation();
@@ -112,6 +116,11 @@ function UserActions({ user, isSelf, isLastActiveAdmin, busyId, confirming, onSu
 
   return (
     <View style={styles.actionRow}>
+      {canApprove && isPending(user) && (
+        <Pressable onPress={stop(onApprove)} disabled={busyId === user.id} style={styles.approveBtn}>
+          <Text style={styles.approveBtnText}>{busyId === user.id ? '…' : 'Approve'}</Text>
+        </Pressable>
+      )}
       <Pressable
         onPress={stop(onSuspend)}
         disabled={suspendDisabled}
@@ -209,7 +218,10 @@ function AddAdminDrawer({
       <Field label="Email" placeholder="jane@kicko.app" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
       <Field label="Phone (optional)" placeholder="+254 700 000 000" keyboardType="phone-pad" value={phone} onChangeText={setPhone} />
       <Field label="Temporary password" placeholder="At least 8 characters" secureTextEntry value={password} onChangeText={setPassword} />
-      <Text style={styles.drawerHint}>They'll sign in the same way — from the admin sign-in page — and can change this password themselves under Settings → Role once logged in.</Text>
+      <Text style={styles.drawerHint}>
+        They'll sign in the same way — from the admin sign-in page — and can change this password themselves under Settings → Role once logged in.
+        {!canCreateCeo && " They won't have dashboard access until Kicko's CEO approves the account."}
+      </Text>
 
       {error ? <Text style={styles.drawerError}>{error}</Text> : null}
 
@@ -218,7 +230,19 @@ function AddAdminDrawer({
   );
 }
 
-function UserDetailDrawer({ user, onClose }: { user: AdminUser | null; onClose: () => void }) {
+function UserDetailDrawer({
+  user,
+  onClose,
+  canApprove,
+  onApprove,
+  approving,
+}: {
+  user: AdminUser | null;
+  onClose: () => void;
+  canApprove: boolean;
+  onApprove: (user: AdminUser) => void;
+  approving: boolean;
+}) {
   const [activity, setActivity] = useState<AdminUserActivity | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -250,11 +274,24 @@ function UserDetailDrawer({ user, onClose }: { user: AdminUser | null; onClose: 
             <View style={[styles.roleBadge, { backgroundColor: roleStyle.bg }]}>
               <Text style={[styles.roleBadgeText, { color: roleStyle.color }]}>{ROLE_LABEL[user.role]}</Text>
             </View>
-            <View style={[styles.statusPill, user.suspended && styles.statusPillSuspended]}>
-              <Text style={[styles.statusPillText, user.suspended && styles.statusPillTextSuspended]}>{user.suspended ? 'Suspended' : 'Active'}</Text>
+            <View style={[styles.statusPill, user.suspended && styles.statusPillSuspended, isPending(user) && styles.statusPillPending]}>
+              <Text
+                style={[
+                  styles.statusPillText,
+                  user.suspended && styles.statusPillTextSuspended,
+                  isPending(user) && styles.statusPillTextPending,
+                ]}
+              >
+                {isPending(user) ? 'Pending approval' : user.suspended ? 'Suspended' : 'Active'}
+              </Text>
             </View>
           </View>
         </View>
+        {canApprove && isPending(user) && (
+          <Pressable onPress={() => onApprove(user)} disabled={approving} style={styles.approveBtn}>
+            <Text style={styles.approveBtnText}>{approving ? '…' : 'Approve'}</Text>
+          </Pressable>
+        )}
       </View>
 
       <View style={styles.detailFieldGrid}>
@@ -432,6 +469,19 @@ export default function AdminUsers() {
     }
   }
 
+  async function handleApprove(user: AdminUser) {
+    setBusyId(user.id);
+    setError(null);
+    try {
+      const { user: updated } = await adminApi.approveAdmin(user.id);
+      setUsers((prev) => prev?.map((u) => (u.id === updated.id ? updated : u)) ?? null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not approve this account.');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   const counts = {
     total: users?.length ?? 0,
     player: users?.filter((u) => u.role === 'player').length ?? 0,
@@ -439,6 +489,7 @@ export default function AdminUsers() {
     manager: users?.filter((u) => u.role === 'manager').length ?? 0,
     admin: users?.filter((u) => u.role === 'admin').length ?? 0,
     ceo: users?.filter((u) => u.role === 'ceo').length ?? 0,
+    pending: users?.filter(isPending).length ?? 0,
   };
   const visible = users?.filter((u) => filter === 'all' || u.role === filter) ?? [];
 
@@ -496,6 +547,12 @@ export default function AdminUsers() {
           <Text style={styles.statLabel}>CEOs</Text>
           <Text style={styles.statValue}>{counts.ceo}</Text>
         </View>
+        {counts.pending > 0 && (
+          <View style={[styles.statCard, styles.statCardPriority]}>
+            <Text style={[styles.statLabel, styles.statLabelAccent]}>Pending approval</Text>
+            <Text style={[styles.statValue, styles.statLabelAccent]}>{counts.pending}</Text>
+          </View>
+        )}
       </View>
 
       {error && <Text style={styles.error}>{error}</Text>}
@@ -528,9 +585,15 @@ export default function AdminUsers() {
                       <Text style={[styles.roleBadgeText, { color: roleStyle.color }]}>{ROLE_LABEL[user.role]}</Text>
                     </View>
                   </View>
-                  <View style={[styles.statusPill, user.suspended && styles.statusPillSuspended]}>
-                    <Text style={[styles.statusPillText, user.suspended && styles.statusPillTextSuspended]}>
-                      {user.suspended ? 'Suspended' : 'Active'}
+                  <View style={[styles.statusPill, user.suspended && styles.statusPillSuspended, isPending(user) && styles.statusPillPending]}>
+                    <Text
+                      style={[
+                        styles.statusPillText,
+                        user.suspended && styles.statusPillTextSuspended,
+                        isPending(user) && styles.statusPillTextPending,
+                      ]}
+                    >
+                      {isPending(user) ? 'Pending approval' : user.suspended ? 'Suspended' : 'Active'}
                     </Text>
                   </View>
                 </View>
@@ -561,12 +624,14 @@ export default function AdminUsers() {
                     user={user}
                     isSelf={isSelf}
                     isLastActiveAdmin={isLastActiveAdmin}
+                    canApprove={selfRole === 'ceo'}
                     busyId={busyId}
                     confirming={confirming}
                     onSuspend={() => toggleSuspend(user)}
                     onConfirmDelete={() => handleDelete(user)}
                     onRequestDelete={() => setConfirmDeleteId(user.id)}
                     onCancelDelete={() => setConfirmDeleteId(null)}
+                    onApprove={() => handleApprove(user)}
                   />
                 </View>
               </Pressable>
@@ -614,9 +679,15 @@ export default function AdminUsers() {
                   {user.phone || '—'}
                 </Text>
                 <View style={styles.colStatus}>
-                  <View style={[styles.statusPill, user.suspended && styles.statusPillSuspended]}>
-                    <Text style={[styles.statusPillText, user.suspended && styles.statusPillTextSuspended]}>
-                      {user.suspended ? 'Suspended' : 'Active'}
+                  <View style={[styles.statusPill, user.suspended && styles.statusPillSuspended, isPending(user) && styles.statusPillPending]}>
+                    <Text
+                      style={[
+                        styles.statusPillText,
+                        user.suspended && styles.statusPillTextSuspended,
+                        isPending(user) && styles.statusPillTextPending,
+                      ]}
+                    >
+                      {isPending(user) ? 'Pending approval' : user.suspended ? 'Suspended' : 'Active'}
                     </Text>
                   </View>
                 </View>
@@ -626,12 +697,14 @@ export default function AdminUsers() {
                     user={user}
                     isSelf={isSelf}
                     isLastActiveAdmin={isLastActiveAdmin}
+                    canApprove={selfRole === 'ceo'}
                     busyId={busyId}
                     confirming={confirming}
                     onSuspend={() => toggleSuspend(user)}
                     onConfirmDelete={() => handleDelete(user)}
                     onRequestDelete={() => setConfirmDeleteId(user.id)}
                     onCancelDelete={() => setConfirmDeleteId(null)}
+                    onApprove={() => handleApprove(user)}
                   />
                 </View>
               </Pressable>
@@ -646,7 +719,16 @@ export default function AdminUsers() {
         onCreated={(user) => setUsers((prev) => (prev ? [user, ...prev] : [user]))}
         canCreateCeo={selfRole === 'ceo'}
       />
-      <UserDetailDrawer user={detailUser} onClose={() => setDetailUser(null)} />
+      <UserDetailDrawer
+        user={detailUser}
+        onClose={() => setDetailUser(null)}
+        canApprove={selfRole === 'ceo'}
+        onApprove={(u) => {
+          handleApprove(u);
+          setDetailUser((prev) => (prev && prev.id === u.id ? { ...prev, admin_approved_at: new Date().toISOString() } : prev));
+        }}
+        approving={detailUser ? busyId === detailUser.id : false}
+      />
     </View>
   );
 }
@@ -679,7 +761,9 @@ const styles = StyleSheet.create({
   // how the row count splits — stays exactly the same width as the rest.
   statsRow: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 18, marginTop: 22, marginBottom: 30 } as any,
   statCard: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 18 },
+  statCardPriority: { borderColor: colors.accent },
   statLabel: { fontFamily: fonts.sansSemiBold, fontSize: 12.5, color: colors.textSoft, marginBottom: 10 },
+  statLabelAccent: { color: colors.accent },
   statValue: { fontFamily: fonts.serif, fontSize: 24, color: colors.text },
 
   loading: { paddingVertical: 40, alignItems: 'center' },
@@ -731,12 +815,16 @@ const styles = StyleSheet.create({
 
   statusPill: { alignSelf: 'flex-start', backgroundColor: 'rgba(60,122,92,0.14)', borderRadius: radius.pill, paddingVertical: 4, paddingHorizontal: 10 },
   statusPillSuspended: { backgroundColor: 'rgba(196,69,63,0.12)' },
+  statusPillPending: { backgroundColor: 'rgba(212,160,60,0.16)' },
   statusPillText: { fontFamily: fonts.sansSemiBold, fontSize: 11, color: colors.good },
   statusPillTextSuspended: { color: colors.danger },
+  statusPillTextPending: { color: '#96731e' },
 
   joinedText: { fontFamily: fonts.sans, fontSize: 12.5, color: colors.textSoft },
 
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  approveBtn: { backgroundColor: colors.accent, borderRadius: radius.pill, paddingVertical: 7, paddingHorizontal: 14 },
+  approveBtnText: { fontFamily: fonts.sansBold, fontSize: 12, color: colors.accentText },
   actionBtn: { borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.pill, paddingVertical: 7, paddingHorizontal: 14 },
   actionBtnRestore: { borderColor: colors.accent },
   actionBtnDisabled: { opacity: 0.4 },

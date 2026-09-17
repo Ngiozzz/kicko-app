@@ -18,7 +18,9 @@ export type NotificationType =
   | "venue_submitted"
   | "resplit_topup_owed"
   | "venue_photo_assist_requested"
-  | "venue_photos_updated";
+  | "venue_photos_updated"
+  | "admin_approval_requested"
+  | "admin_approved";
 
 /**
  * Inserts one notification row. Called directly from whatever controller

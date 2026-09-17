@@ -27,7 +27,8 @@ function isValidRefundTiers(tiers: unknown): tiers is { min_hours: number; pct: 
 
 /** Admin-only. Overwrites the singleton settings row and invalidates the read cache so the change is live immediately. */
 export async function updateSettings(req: Request, res: Response) {
-  if (req.user!.role !== "admin" && req.user!.role !== "ceo") return res.status(403).json({ error: "Admin access only." });
+  const isApprovedAdmin = req.user!.role === "ceo" || (req.user!.role === "admin" && req.user!.admin_approved_at);
+  if (!isApprovedAdmin) return res.status(403).json({ error: "Admin access only." });
 
   const { service_fee_tiers, refund_tiers, walk_in_refund_pct, session_join_window_minutes, session_pay_window_minutes, session_decision_grace_minutes, session_max_per_side } =
     req.body;

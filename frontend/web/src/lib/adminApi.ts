@@ -15,6 +15,9 @@ export type AdminUser = {
   avatar_url: string | null;
   // Only populated for role='owner' — how many venues they own.
   venue_count: number | null;
+  // Admin-only: null means a plain-admin-created admin account is still
+  // awaiting ceo approval (see adminApi.approveAdmin). Always set for ceo.
+  admin_approved_at: string | null;
   created_at: string;
 };
 
@@ -104,6 +107,7 @@ export const adminApi = {
   getUser: (id: string) => apiFetch<{ user: AdminUser; activity: AdminUserActivity }>(`/api/admin/users/${id}`),
   setUserSuspended: (id: string, suspended: boolean) =>
     apiFetch<{ user: AdminUser }>(`/api/admin/users/${id}/suspend`, { method: 'PATCH', body: JSON.stringify({ suspended }) }),
+  approveAdmin: (id: string) => apiFetch<{ user: AdminUser }>(`/api/admin/users/${id}/approve`, { method: 'PATCH' }),
   createAdmin: (input: AdminInput) => apiFetch<{ user: AdminUser }>('/api/admin/admins', { method: 'POST', body: JSON.stringify(input) }),
   deleteAdmin: (id: string) => apiFetch<null>(`/api/admin/admins/${id}`, { method: 'DELETE' }),
   listVenues: (status?: string) => apiFetch<{ venues: AdminVenue[] }>(`/api/admin/venues${status ? `?status=${status}` : ''}`),

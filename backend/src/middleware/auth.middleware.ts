@@ -22,6 +22,11 @@ export interface AuthedUser {
   // — null for email/password accounts and any provider that doesn't
   // supply one.
   avatar_url: string | null;
+  // Admin-only gate: null means a plain-admin-created admin account is
+  // still awaiting a ceo's approval (see admin.controller.ts#createAdmin/
+  // approveAdmin). Always set for 'ceo' (self-approved on creation) and
+  // irrelevant for every other role.
+  admin_approved_at: string | null;
 }
 
 declare global {
@@ -33,7 +38,7 @@ declare global {
   }
 }
 
-const USER_COLUMNS = "id, role, name, email, phone, suspended, sport, position, owner_id, venue_id, avatar_url";
+const USER_COLUMNS = "id, role, name, email, phone, suspended, sport, position, owner_id, venue_id, avatar_url, admin_approved_at";
 
 /**
  * Verifies the Supabase access token sent from any client (web, mobile,

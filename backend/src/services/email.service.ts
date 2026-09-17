@@ -41,7 +41,11 @@ export async function sendEmail(params: { to: string; subject: string; html: str
 // instead.
 const BANNER_URL = "https://angyrszlptntfkqmcwwn.supabase.co/storage/v1/object/public/email-assets/banner/kicko-logo-banner.png";
 
-function wrapper(bodyHtml: string): string {
+// Exported for the rare internal-ops email (e.g. admin approval requests)
+// that wants the same branded shell without going through the full
+// admin-editable-template system — every customer-facing email still goes
+// through sendTemplatedEmail instead.
+export function wrapper(bodyHtml: string): string {
   return `
     <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#1a1a1a;">
       <img src="${BANNER_URL}" alt="Kicko" style="height:36px;display:block;margin-bottom:20px;" />

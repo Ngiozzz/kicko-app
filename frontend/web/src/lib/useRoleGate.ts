@@ -31,7 +31,11 @@ const SIGN_IN_HREF: Record<Role, string> = {
  * under a different label (see admin.controller.ts#requireAdmin).
  */
 export function useRoleGate(expectedRole: Role | Role[]) {
-  const [status, setStatus] = useState<'checking' | 'ready'>('checking');
+  // 'pending' = a plain-admin-created admin account still awaiting ceo
+  // approval (see admin.controller.ts#createAdmin/approveAdmin) — matched
+  // role, but no dashboard access yet. Callers that care show a waiting
+  // screen instead of redirecting away, unlike every other mismatch.
+  const [status, setStatus] = useState<'checking' | 'ready' | 'pending'>('checking');
   const [name, setName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [role, setRole] = useState<Role | null>(null);
@@ -56,7 +60,7 @@ export function useRoleGate(expectedRole: Role | Role[]) {
         return;
       }
       try {
-        const { user } = await apiFetch<{ user: { role: string; name: string; avatar_url: string | null } }>(
+        const { user } = await apiFetch<{ user: { role: string; name: string; avatar_url: string | null; admin_approved_at?: string | null } }>(
           '/api/account/me'
         );
         if (cancelled) return;
@@ -68,7 +72,7 @@ export function useRoleGate(expectedRole: Role | Role[]) {
         setName(user.name);
         setAvatarUrl(user.avatar_url);
         setRole(user.role as Role);
-        setStatus('ready');
+        setStatus(user.role === 'admin' && !user.admin_approved_at ? 'pending' : 'ready');
       } catch {
         if (!cancelled) router.replace(signInHref);
       }

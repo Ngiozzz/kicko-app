@@ -2,29 +2,30 @@ import type { Request, Response } from "express";
 import { supabase } from "../config/supabase.js";
 import { getLogs, type LogLevel } from "../services/logs.service.js";
 import { notify } from "../services/notifications.service.js";
-import { sendEmail, sendTemplatedEmail, renderEmailTemplate, SAMPLE_VARS, FALLBACK_TEMPLATES, FRONTEND_URL, SUPPORT_EMAIL_URL, type EmailTemplateKey } from "../services/email.service.js";
+import { sendEmail, sendTemplatedEmail, renderEmailTemplate, SAMPLE_VARS, FALLBACK_TEMPLATES, FRONTEND_URL, SUPPORT_EMAIL_URL, wrapper, escapeHtml, type EmailTemplateKey } from "../services/email.service.js";
 
 // 'ceo' is a full admin-equivalent account — same access, distinct label.
+// A pending admin (role='admin', admin_approved_at still null — see
+// createAdmin/approveAdmin) does NOT count: they're not functional until
+// a ceo approves them.
 function isAdminRole(role: string): boolean {
   return role === "admin" || role === "ceo";
 }
 
 function requireAdmin(req: Request, res: Response): boolean {
-  if (!isAdminRole(req.user!.role)) {
-    res.status(403).json({ error: "Admin access only." });
-    return false;
-  }
-  return true;
+  const { role, admin_approved_at } = req.user!;
+  if (role === "ceo" || (role === "admin" && admin_approved_at)) return true;
+  res.status(403).json({ error: role === "admin" ? "Your account is awaiting approval." : "Admin access only." });
+  return false;
 }
 
-/** How many admin/ceo accounts are currently active (not suspended) — the floor a suspend/delete can't cross. */
+/** How many admin/ceo accounts are currently active (not suspended, and approved if 'admin') — the floor a suspend/delete can't cross. */
 async function countActiveAdmins(): Promise<number> {
-  const { count } = await supabase
-    .from("users")
-    .select("id", { count: "exact", head: true })
-    .in("role", ["admin", "ceo"])
-    .eq("suspended", false);
-  return count ?? 0;
+  const [{ count: ceoCount }, { count: approvedAdminCount }] = await Promise.all([
+    supabase.from("users").select("id", { count: "exact", head: true }).eq("role", "ceo").eq("suspended", false),
+    supabase.from("users").select("id", { count: "exact", head: true }).eq("role", "admin").eq("suspended", false).not("admin_approved_at", "is", null),
+  ]);
+  return (ceoCount ?? 0) + (approvedAdminCount ?? 0);
 }
 
 /** Platform-wide counts for the admin dashboard home. */
@@ -65,7 +66,7 @@ export async function listUsers(req: Request, res: Response) {
 
   let query = supabase
     .from("users")
-    .select("id, role, name, email, phone, suspended, owner_id, sport, position, avatar_url, created_at")
+    .select("id, role, name, email, phone, suspended, owner_id, sport, position, avatar_url, admin_approved_at, admin_approved_by, created_at")
     .order("created_at", { ascending: false });
 
   const role = req.query.role;
@@ -95,7 +96,7 @@ export async function getUserDetail(req: Request, res: Response) {
 
   const { data: user, error } = await supabase
     .from("users")
-    .select("id, role, name, email, phone, suspended, owner_id, sport, position, avatar_url, created_at")
+    .select("id, role, name, email, phone, suspended, owner_id, sport, position, avatar_url, admin_approved_at, admin_approved_by, created_at")
     .eq("id", req.params.id)
     .maybeSingle();
   if (error) return res.status(500).json({ error: "Could not load this user." });
@@ -147,8 +148,11 @@ export async function setUserSuspended(req: Request, res: Response) {
   }
 
   if (suspended) {
-    const { data: target } = await supabase.from("users").select("role, suspended").eq("id", req.params.id).maybeSingle();
-    if (target && isAdminRole(target.role) && !target.suspended && (await countActiveAdmins()) <= 1) {
+    const { data: target } = await supabase.from("users").select("role, suspended, admin_approved_at").eq("id", req.params.id).maybeSingle();
+    // Only a target that actually counts toward countActiveAdmins() can be
+    // "the last one" — a still-pending admin was never part of that floor.
+    const targetCounts = target && (target.role === "ceo" || (target.role === "admin" && target.admin_approved_at));
+    if (targetCounts && !target.suspended && (await countActiveAdmins()) <= 1) {
       return res.status(400).json({ error: "You can't suspend the last remaining admin." });
     }
   }
@@ -157,7 +161,7 @@ export async function setUserSuspended(req: Request, res: Response) {
     .from("users")
     .update({ suspended })
     .eq("id", req.params.id)
-    .select("id, role, name, email, phone, suspended, owner_id, avatar_url, created_at")
+    .select("id, role, name, email, phone, suspended, owner_id, avatar_url, admin_approved_at, admin_approved_by, created_at")
     .maybeSingle();
 
   if (error) return res.status(500).json({ error: "Could not update this user." });
@@ -327,7 +331,7 @@ export async function deleteVenue(req: Request, res: Response) {
   res.status(204).send();
 }
 
-const USER_COLUMNS = "id, role, name, email, phone, suspended, owner_id, avatar_url, created_at";
+const USER_COLUMNS = "id, role, name, email, phone, suspended, owner_id, avatar_url, admin_approved_at, admin_approved_by, created_at";
 
 /**
  * Provisions a new admin or ceo account — the only way one gets created,
@@ -350,6 +354,13 @@ export async function createAdmin(req: Request, res: Response) {
     return res.status(403).json({ error: "Only a CEO can create another CEO account." });
   }
 
+  // A ceo already had to authorize this by being the one calling this
+  // endpoint (or, for accountRole='admin', is simply trusted the same way
+  // ceo-creation already is) — no point making them separately approve
+  // their own action. A plain admin creating another admin still needs a
+  // ceo's sign-off before that new account can do anything.
+  const selfApproved = req.user!.role === "ceo";
+
   const { data: created, error: createError } = await supabase.auth.admin.createUser({
     email,
     password,
@@ -360,7 +371,12 @@ export async function createAdmin(req: Request, res: Response) {
 
   const { data, error } = await supabase
     .from("users")
-    .update({ role: accountRole, phone: phone || null })
+    .update({
+      role: accountRole,
+      phone: phone || null,
+      admin_approved_at: selfApproved ? new Date().toISOString() : null,
+      admin_approved_by: selfApproved ? req.user!.id : null,
+    })
     .eq("id", created.user.id)
     .select(USER_COLUMNS)
     .single();
@@ -370,7 +386,64 @@ export async function createAdmin(req: Request, res: Response) {
     await supabase.auth.admin.deleteUser(created.user.id);
     return res.status(500).json({ error: "Could not provision this account." });
   }
+
+  if (!selfApproved) {
+    const { data: ceos } = await supabase.from("users").select("id, email").eq("role", "ceo");
+    for (const ceo of ceos ?? []) {
+      await notify({
+        userId: ceo.id,
+        type: "admin_approval_requested",
+        title: "New admin awaiting approval",
+        body: `${data.name} (${data.email}) needs your approval before they can access the dashboard.`,
+        link: "/admin-dashboard/users",
+      });
+      if (ceo.email) {
+        await sendEmail({
+          to: ceo.email,
+          subject: "New admin awaiting your approval",
+          html: wrapper(
+            `<h2 style="margin:0 0 12px;">New admin awaiting approval</h2><p><strong>${escapeHtml(data.name)}</strong> (${escapeHtml(
+              data.email
+            )}) was just added as an admin and needs your approval before they can access the dashboard.</p><p><a href="${FRONTEND_URL}/admin-dashboard/users" style="color:#C08A3E;font-weight:600;">Review in Users →</a></p>`
+          ),
+        });
+      }
+    }
+  }
+
   res.status(201).json({ user: data });
+}
+
+/** CEO-only. Activates a pending admin account created by another admin (see createAdmin's selfApproved logic). */
+export async function approveAdmin(req: Request, res: Response) {
+  if (req.user!.role !== "ceo") {
+    return res.status(403).json({ error: "Only a CEO can approve new admin accounts." });
+  }
+
+  const { data: target, error: targetError } = await supabase.from("users").select("id, role, admin_approved_at").eq("id", req.params.id).maybeSingle();
+  if (targetError) return res.status(500).json({ error: "Could not load this user." });
+  if (!target) return res.status(404).json({ error: "User not found." });
+  if (target.role !== "admin") return res.status(400).json({ error: "Only pending admin accounts can be approved here." });
+  if (target.admin_approved_at) return res.status(400).json({ error: "This account is already approved." });
+
+  const { data, error } = await supabase
+    .from("users")
+    .update({ admin_approved_at: new Date().toISOString(), admin_approved_by: req.user!.id })
+    .eq("id", target.id)
+    .select(USER_COLUMNS)
+    .single();
+
+  if (error || !data) return res.status(500).json({ error: "Could not approve this account." });
+
+  await notify({
+    userId: data.id,
+    type: "admin_approved",
+    title: "Account approved",
+    body: "You now have full admin access.",
+    link: "/admin-dashboard",
+  });
+
+  res.status(200).json({ user: data });
 }
 
 /** Deletes an admin/ceo account entirely — scoped to admin-role targets only. */
@@ -381,10 +454,17 @@ export async function deleteAdmin(req: Request, res: Response) {
     return res.status(400).json({ error: "You can't delete your own account." });
   }
 
-  const { data: target } = await supabase.from("users").select("role, suspended").eq("id", req.params.id).maybeSingle();
+  const { data: target } = await supabase.from("users").select("role, suspended, admin_approved_at").eq("id", req.params.id).maybeSingle();
   if (!target) return res.status(404).json({ error: "User not found." });
   if (!isAdminRole(target.role)) return res.status(400).json({ error: "Only admin/ceo accounts can be deleted here." });
-  if (!target.suspended && (await countActiveAdmins()) <= 1) {
+  // A plain admin can still delete other (approved) admins, but only a
+  // ceo can remove a ceo account — same top-of-hierarchy protection as
+  // createAdmin's matching check.
+  if (target.role === "ceo" && req.user!.role !== "ceo") {
+    return res.status(403).json({ error: "Only a CEO can delete another CEO account." });
+  }
+  const targetCounts = target.role === "ceo" || (target.role === "admin" && target.admin_approved_at);
+  if (targetCounts && !target.suspended && (await countActiveAdmins()) <= 1) {
     return res.status(400).json({ error: "You can't delete the last remaining admin." });
   }
 

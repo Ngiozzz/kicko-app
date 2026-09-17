@@ -13,6 +13,7 @@ import {
   deleteReview,
   dismissReviewFlag,
   createAdmin,
+  approveAdmin,
   deleteAdmin,
   getServerLogs,
   getPaymentsOverview,
@@ -37,6 +38,7 @@ router.get("/payments/sessions", listAdminSessions);
 router.get("/users", listUsers);
 router.get("/users/:id", getUserDetail);
 router.patch("/users/:id/suspend", setUserSuspended);
+router.patch("/users/:id/approve", approveAdmin);
 router.post("/admins", createAdmin);
 router.delete("/admins/:id", deleteAdmin);
 router.get("/venues", listAllVenues);
