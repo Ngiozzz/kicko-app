@@ -3,6 +3,7 @@ import { Slot, router } from 'expo-router';
 import { colors, fonts, radius, supabase } from '@kicko/shared';
 import { useRoleGate } from '../../src/lib/useRoleGate';
 import { AdminShell } from '../../src/components/admin/AdminShell';
+import { AdminRoleProvider } from '../../src/lib/adminRoleContext';
 
 // Shown instead of the dashboard for an admin account a ceo hasn't
 // approved yet (see admin.controller.ts#createAdmin/approveAdmin) — they
@@ -52,9 +53,11 @@ export default function AdminLayout() {
   }
 
   return (
-    <AdminShell userName={name} avatarUrl={avatarUrl} roleLabel={role === 'ceo' ? 'CEO' : 'Admin'}>
-      <Slot />
-    </AdminShell>
+    <AdminRoleProvider role={role === 'ceo' ? 'ceo' : 'admin'}>
+      <AdminShell userName={name} avatarUrl={avatarUrl} roleLabel={role === 'ceo' ? 'CEO' : 'Admin'}>
+        <Slot />
+      </AdminShell>
+    </AdminRoleProvider>
   );
 }
 

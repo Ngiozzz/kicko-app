@@ -514,6 +514,38 @@ export async function getPaymentsOverview(req: Request, res: Response) {
   res.status(200).json({ totalCollected, paidOut, refunded, needsAttention });
 }
 
+/**
+ * CEO-only. The business's actual financial state — unlike
+ * getPaymentsOverview (visible to any admin), this surfaces Kicko's own
+ * take: platformProfit is the sum of service_fee across paid bookings,
+ * which is never paid out to an owner and never refunded (see
+ * pricing.service.ts#computeFeeInclusiveRefund), so it's exactly the
+ * platform's margin — no separate ledger needed.
+ */
+export async function getFinanceOverview(req: Request, res: Response) {
+  if (req.user!.role !== "ceo") {
+    return res.status(403).json({ error: "Only a CEO can view business finances." });
+  }
+
+  const [{ data: bookings, error: bookingsError }, { data: payouts, error: payoutsError }, { data: refunds, error: refundsError }] = await Promise.all([
+    supabase.from("bookings").select("total_amount, service_fee, payment_status"),
+    supabase.from("payouts").select("amount, status"),
+    supabase.from("refunds").select("amount, status"),
+  ]);
+
+  if (bookingsError || payoutsError || refundsError) return res.status(500).json({ error: "Could not load business finances." });
+
+  // Same "paid" definition as getPaymentsOverview — a partially_refunded
+  // booking still collected its full amount (and fee) up front.
+  const paidBookings = (bookings ?? []).filter((b) => b.payment_status === "paid" || b.payment_status === "partially_refunded");
+  const totalRevenue = paidBookings.reduce((sum, b) => sum + Number(b.total_amount), 0);
+  const platformProfit = paidBookings.reduce((sum, b) => sum + Number(b.service_fee), 0);
+  const totalPayouts = (payouts ?? []).filter((p) => p.status === "paid").reduce((sum, p) => sum + Number(p.amount), 0);
+  const totalRefunded = (refunds ?? []).filter((r) => r.status === "completed").reduce((sum, r) => sum + Number(r.amount), 0);
+
+  res.status(200).json({ totalRevenue, platformProfit, totalPayouts, totalRefunded });
+}
+
 const TRANSACTION_COLUMNS =
   "*, venue:venues(id, name, location, sport, photos, price_peak, price_off_peak, owner_id, status), player:users!bookings_player_id_fkey(id, name, email, phone), payouts(status, amount), refunds(status, amount, pct)";
 

@@ -2,9 +2,14 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Link, useFocusEffect } from 'expo-router';
 import { colors, fonts, radius } from '@kicko/shared';
-import { adminApi, AdminStats, AdminVenue } from '../../src/lib/adminApi';
+import { adminApi, AdminStats, AdminVenue, FinanceOverview } from '../../src/lib/adminApi';
 import { SportIcon, Sport } from '../../src/components/SportIcon';
 import { useIsMobile } from '../../src/lib/useIsMobile';
+import { useAdminRole } from '../../src/lib/adminRoleContext';
+
+function kes(amount: number): string {
+  return `KES ${amount.toLocaleString('en-KE', { maximumFractionDigits: 0 })}`;
+}
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
@@ -33,9 +38,11 @@ const STATUS_LABEL: Record<AdminVenue['status'], string> = {
 
 export default function AdminDashboard() {
   const isMobile = useIsMobile();
+  const role = useAdminRole();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [recentVenues, setRecentVenues] = useState<AdminVenue[] | null>(null);
   const [recentErrorCount, setRecentErrorCount] = useState<number | null>(null);
+  const [finance, setFinance] = useState<FinanceOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -50,6 +57,15 @@ export default function AdminDashboard() {
     }
   }, []);
 
+  // ceo-only — see admin.controller.ts#getFinanceOverview (403s for a
+  // plain admin), so this is its own effect, separate from the stats above.
+  useFocusEffect(
+    useCallback(() => {
+      if (role !== 'ceo') return;
+      adminApi.financeOverview().then(setFinance).catch(() => setFinance(null));
+    }, [role])
+  );
+
   useFocusEffect(
     useCallback(() => {
       load();
@@ -62,6 +78,23 @@ export default function AdminDashboard() {
         <Text style={styles.welcomeTitle}>Dashboard</Text>
         <Text style={styles.welcomeSub}>Platform-wide overview across every venue and account.</Text>
       </View>
+
+      {role === 'ceo' && (
+        <View style={styles.financeSection}>
+          <Text style={[styles.secTitle, styles.financeTitle]}>Business finances</Text>
+          <View style={styles.statsRow}>
+            <StatCard label="Total revenue" value={finance ? kes(finance.totalRevenue) : '—'} sub="Collected from players, all time" />
+            <StatCard
+              label="Platform profit"
+              value={finance ? kes(finance.platformProfit) : '—'}
+              sub="Kicko's service-fee cut — never paid out or refunded"
+              tone="accent"
+            />
+            <StatCard label="Paid to venues" value={finance ? kes(finance.totalPayouts) : '—'} sub="Payouts sent to owners" />
+            <StatCard label="Refunded" value={finance ? kes(finance.totalRefunded) : '—'} sub="Returned to players" />
+          </View>
+        </View>
+      )}
 
       {error && <Text style={styles.error}>{error}</Text>}
       {!stats && !error && (
@@ -179,6 +212,9 @@ const styles = StyleSheet.create({
   welcome: { marginBottom: 26 },
   welcomeTitle: { fontFamily: fonts.serif, fontSize: 26, color: colors.text, marginBottom: 4 },
   welcomeSub: { fontFamily: fonts.sans, fontSize: 14, color: colors.textSoft },
+
+  financeSection: { marginBottom: 10 },
+  financeTitle: { marginBottom: 18 },
 
   loading: { paddingVertical: 40, alignItems: 'center' },
   error: { fontFamily: fonts.sans, fontSize: 13.5, color: colors.danger },

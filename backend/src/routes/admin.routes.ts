@@ -17,6 +17,7 @@ import {
   deleteAdmin,
   getServerLogs,
   getPaymentsOverview,
+  getFinanceOverview,
   listAdminTransactions,
   listAdminSessions,
   listEmailTemplates,
@@ -33,6 +34,7 @@ router.use(requireAuth);
 router.get("/stats", getStats);
 router.get("/logs", getServerLogs);
 router.get("/payments/overview", getPaymentsOverview);
+router.get("/finance", getFinanceOverview);
 router.get("/payments/transactions", listAdminTransactions);
 router.get("/payments/sessions", listAdminSessions);
 router.get("/users", listUsers);
