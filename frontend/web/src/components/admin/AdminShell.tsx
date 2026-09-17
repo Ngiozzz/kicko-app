@@ -1,4 +1,4 @@
-import { ReactElement, ReactNode, useState } from 'react';
+import { ReactElement, ReactNode, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Link, router, usePathname } from 'expo-router';
 import { colors, fonts, radius } from '@kicko/shared';
@@ -24,6 +24,7 @@ import { MobileTabBar, MOBILE_TAB_BAR_HEIGHT } from '../MobileTabBar';
 import { MobileAccountMenu } from '../MobileAccountMenu';
 import { Avatar } from '../Avatar';
 import { useAdminRole } from '../../lib/adminRoleContext';
+import { adminApi, AdminStats } from '../../lib/adminApi';
 
 type NavItem = { label: string; href: string; icon: (p: { size?: number; color: string }) => ReactElement };
 
@@ -148,7 +149,7 @@ function isActive(pathname: string, href: string) {
   return href === '/admin-dashboard' ? pathname === '/admin-dashboard' : pathname.startsWith(href);
 }
 
-function NavLink({ item, active }: { item: NavItem; active: boolean }) {
+function NavLink({ item, active, badge }: { item: NavItem; active: boolean; badge?: number }) {
   const [hovered, setHovered] = useState(false);
   const Icon = item.icon;
   const iconColor = active ? colors.accentText : hovered ? colors.text : colors.textSoft;
@@ -161,6 +162,11 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
             <Icon size={17} color={iconColor} />
           </View>
           <Text style={[styles.navText, (active || hovered) && styles.navTextHot, active && styles.navTextActive]}>{item.label}</Text>
+          {Boolean(badge) && (
+            <View style={styles.navBadge}>
+              <Text style={styles.navBadgeText}>{badge! > 99 ? '99+' : badge}</Text>
+            </View>
+          )}
         </View>
       </Pressable>
     </Link>
@@ -212,6 +218,18 @@ function AdminShellInner({
   const role = useAdminRole();
   const isCeo = role === 'ceo';
 
+  // Sidebar "needs action" counts on Users/Venues — refetched on every
+  // navigation so approving an admin or verifying a venue clears its
+  // badge without needing a full page reload.
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  useEffect(() => {
+    adminApi.stats().then(setStats).catch(() => {});
+  }, [pathname]);
+  const navBadges: Record<string, number | undefined> = {
+    '/admin-dashboard/users': stats?.pendingAdminApprovals,
+    '/admin-dashboard/venues': stats?.venuesByStatus.pending,
+  };
+
   async function handleSignOut() {
     await supabase.auth.signOut();
     router.replace('/admin');
@@ -244,7 +262,7 @@ function AdminShellInner({
           <Text style={[styles.navLabel, { marginTop: 14 }]}>Manage</Text>
           <View style={styles.navList}>
             {MANAGE_ITEMS.map((item) => (
-              <NavLink key={item.href} item={item} active={isActive(pathname, item.href)} />
+              <NavLink key={item.href} item={item} active={isActive(pathname, item.href)} badge={navBadges[item.href]} />
             ))}
           </View>
 
@@ -334,7 +352,10 @@ function AdminShellInner({
       </View>
 
       {isMobile && (
-        <MobileTabBar items={[...OVERVIEW_ITEMS, ...MANAGE_ITEMS, ...(isCeo ? CEO_ITEMS : [])]} isActive={(href) => isActive(pathname, href)} />
+        <MobileTabBar
+          items={[...OVERVIEW_ITEMS, ...MANAGE_ITEMS.map((item) => ({ ...item, badge: navBadges[item.href] })), ...(isCeo ? CEO_ITEMS : [])]}
+          isActive={(href) => isActive(pathname, href)}
+        />
       )}
     </View>
   );
@@ -379,9 +400,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   navIconWrapActive: { backgroundColor: colors.accent },
-  navText: { fontFamily: fonts.sansSemiBold, fontSize: 14, color: colors.textSoft },
+  navText: { flex: 1, fontFamily: fonts.sansSemiBold, fontSize: 14, color: colors.textSoft },
   navTextHot: { color: colors.text },
   navTextActive: { color: colors.accent, fontFamily: fonts.sansBold },
+  navBadge: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center' },
+  navBadgeText: { fontFamily: fonts.sansBold, fontSize: 11, color: '#fff' },
 
   sidebarFoot: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 14, gap: 2 },
   footLink: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.md },

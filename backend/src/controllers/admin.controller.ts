@@ -33,7 +33,7 @@ export async function getStats(req: Request, res: Response) {
   if (!requireAdmin(req, res)) return;
 
   const [{ data: users, error: usersError }, { data: venues, error: venuesError }, { data: deviceRows, error: deviceError }] = await Promise.all([
-    supabase.from("users").select("role"),
+    supabase.from("users").select("role, admin_approved_at"),
     supabase.from("venues").select("status"),
     supabase.from("device_events").select("device_type"),
   ]);
@@ -42,6 +42,11 @@ export async function getStats(req: Request, res: Response) {
 
   const usersByRole = { player: 0, owner: 0, manager: 0, admin: 0, ceo: 0 };
   for (const u of users!) usersByRole[u.role as keyof typeof usersByRole]++;
+
+  // Admin-created admins stuck awaiting a ceo's sign-off (see
+  // admin.controller.ts#createAdmin/approveAdmin) — surfaced as a sidebar
+  // badge on Users so it isn't easy to miss.
+  const pendingAdminApprovals = users!.filter((u) => u.role === "admin" && !u.admin_approved_at).length;
 
   const venuesByStatus = { pending: 0, verified: 0, suspended: 0 };
   for (const v of venues!) venuesByStatus[v.status as keyof typeof venuesByStatus]++;
@@ -54,6 +59,7 @@ export async function getStats(req: Request, res: Response) {
   res.status(200).json({
     totalUsers: users!.length,
     usersByRole,
+    pendingAdminApprovals,
     totalVenues: venues!.length,
     venuesByStatus,
     deviceBreakdown,

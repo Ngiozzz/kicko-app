@@ -66,6 +66,9 @@ export type AdminVenue = {
 export type AdminStats = {
   totalUsers: number;
   usersByRole: { player: number; owner: number; manager: number; admin: number; ceo: number };
+  // Admin-created admins still awaiting a ceo's sign-off — see
+  // admin.controller.ts#createAdmin/approveAdmin.
+  pendingAdminApprovals: number;
   totalVenues: number;
   venuesByStatus: { pending: number; verified: number; suspended: number };
   deviceBreakdown: { mobile: number; tablet: number; desktop: number; other: number };

@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Link } from 'expo-router';
 import { colors, fonts } from '@kicko/shared';
 
-export type MobileNavItem = { label: string; href: string; icon: (p: { size?: number; color: string }) => ReactElement };
+export type MobileNavItem = { label: string; href: string; icon: (p: { size?: number; color: string }) => ReactElement; badge?: number };
 
 // Height of the bar itself (excludes safe-area padding) — shells add this
 // much bottom padding to their content so nothing sits underneath it.
@@ -21,7 +21,14 @@ export function MobileTabBar({ items, isActive }: { items: MobileNavItem[]; isAc
         return (
           <Link key={item.href} href={item.href} asChild>
             <Pressable style={styles.item}>
-              <Icon size={20} color={active ? colors.accent : colors.textSoft} />
+              <View style={styles.iconWrap}>
+                <Icon size={20} color={active ? colors.accent : colors.textSoft} />
+                {Boolean(item.badge) && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{item.badge! > 9 ? '9+' : item.badge}</Text>
+                  </View>
+                )}
+              </View>
               <Text style={[styles.label, active && styles.labelActive]}>{item.label}</Text>
             </Pressable>
           </Link>
@@ -45,6 +52,20 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   item: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3 },
+  iconWrap: { position: 'relative' },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -8,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    backgroundColor: colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: { fontFamily: fonts.sansBold, fontSize: 9, color: '#fff' },
   label: { fontFamily: fonts.sansSemiBold, fontSize: 10.5, color: colors.textSoft },
   labelActive: { color: colors.accent },
 });
