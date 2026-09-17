@@ -24,7 +24,7 @@ export default function AdminSettings() {
 
       <Text style={styles.secTitle}>Go to</Text>
 
-      <NavCard title="Role settings" description="Your admin profile — name, phone, and appearance." href="/admin-dashboard/settings/role" />
+      <NavCard title="Profile" description="Your admin profile — name, phone, and appearance." href="/admin-dashboard/settings/role" />
       <NavCard
         title="Service fees"
         description="The flat fee added on top of a booking's subtotal, tiered by price bracket."

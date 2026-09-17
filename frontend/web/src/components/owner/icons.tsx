@@ -82,6 +82,61 @@ export function FinanceIcon({ size = 17, color }: IconProps) {
   );
 }
 
+export function ProfileIcon({ size = 17, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Circle cx={12} cy={8} r={3.5} />
+      <Path d="M4.5 20c0-4.1 3.4-7 7.5-7s7.5 2.9 7.5 7" />
+    </Svg>
+  );
+}
+
+export function FeesIcon({ size = 17, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Line x1={19} y1={5} x2={5} y2={19} />
+      <Circle cx={7.5} cy={7.5} r={2.5} />
+      <Circle cx={16.5} cy={16.5} r={2.5} />
+    </Svg>
+  );
+}
+
+export function RefundIcon({ size = 17, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M4 12a8 8 0 1 0 2.3-5.6" />
+      <Path d="M4 4v4.5h4.5" />
+    </Svg>
+  );
+}
+
+export function ClockIcon({ size = 17, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Circle cx={12} cy={12} r={8.5} />
+      <Path d="M12 7.5V12l3.2 2" />
+    </Svg>
+  );
+}
+
+export function EmailIcon({ size = 17, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Rect x={3} y={5} width={18} height={14} rx={2} />
+      <Path d="m3.5 6 8.5 7 8.5-7" />
+    </Svg>
+  );
+}
+
+export function LogsIcon({ size = 17, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Rect x={4.5} y={3.5} width={15} height={17} rx={1.5} />
+      <Path d="M8 8.5h8M8 12.5h8M8 16.5h5" />
+    </Svg>
+  );
+}
+
 export function SettingsIcon({ size = 17, color }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">

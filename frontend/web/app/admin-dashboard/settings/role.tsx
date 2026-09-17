@@ -98,7 +98,7 @@ export default function AdminRoleSettings() {
 
   return (
     <View>
-      <Text style={styles.title}>Role settings</Text>
+      <Text style={styles.title}>Profile</Text>
       <Text style={styles.subtitle}>Your admin profile and appearance preferences.</Text>
 
       <SettingsCard title="Profile">

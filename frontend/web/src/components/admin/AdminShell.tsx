@@ -4,7 +4,20 @@ import { Link, router, usePathname } from 'expo-router';
 import { colors, fonts, radius } from '@kicko/shared';
 import { LogoMark } from '../Logo';
 import { supabase } from '@kicko/shared';
-import { FinanceIcon, HomeIcon, ManagersIcon, PaymentsIcon, SearchIcon, VenuesIcon } from '../owner/icons';
+import {
+  ClockIcon,
+  EmailIcon,
+  FeesIcon,
+  FinanceIcon,
+  HomeIcon,
+  LogsIcon,
+  ManagersIcon,
+  PaymentsIcon,
+  ProfileIcon,
+  RefundIcon,
+  SearchIcon,
+  VenuesIcon,
+} from '../owner/icons';
 import { BreadcrumbProvider, useBreadcrumbOverride } from '../../lib/breadcrumbContext';
 import { NotifBell } from '../NotifBell';
 import { useIsMobile } from '../../lib/useIsMobile';
@@ -25,6 +38,19 @@ const MANAGE_ITEMS: NavItem[] = [
 // from MANAGE_ITEMS so a plain admin never sees the link at all, not just
 // gets a 403 if they guess the URL (finance.tsx guards that case too).
 const CEO_ITEMS: NavItem[] = [{ label: 'Finance', href: '/admin-dashboard/finance', icon: FinanceIcon }];
+// Every /admin-dashboard/settings/* screen, promoted from the old single
+// "Settings" footer link into its own sidebar group — settings/index.tsx
+// (the "Go to" list these used to live behind) still exists as the
+// landing page for /admin-dashboard/settings itself, and is still what
+// the mobile account menu's Settings entry opens.
+const SETTINGS_ITEMS: NavItem[] = [
+  { label: 'Profile', href: '/admin-dashboard/settings/role', icon: ProfileIcon },
+  { label: 'Service fees', href: '/admin-dashboard/settings/fees', icon: FeesIcon },
+  { label: 'Cancellation refunds', href: '/admin-dashboard/settings/refunds', icon: RefundIcon },
+  { label: 'Match windows', href: '/admin-dashboard/settings/windows', icon: ClockIcon },
+  { label: 'Email templates', href: '/admin-dashboard/settings/emails', icon: EmailIcon },
+  { label: 'Server logs', href: '/admin-dashboard/settings/logs', icon: LogsIcon },
+];
 
 // Same breadcrumb-as-real-links convention as OwnerShell — see
 // Kicko/docs/admin.html / users.html / venues.html's chrome.
@@ -60,7 +86,7 @@ const BREADCRUMBS: Record<string, Crumb[]> = {
   '/admin-dashboard/settings/role': [
     { label: 'Dashboard', href: '/admin-dashboard' },
     { label: 'Settings', href: '/admin-dashboard/settings' },
-    { label: 'Role settings' },
+    { label: 'Profile' },
   ],
   '/admin-dashboard/settings/fees': [
     { label: 'Dashboard', href: '/admin-dashboard' },
@@ -183,7 +209,6 @@ function AdminShellInner({
 }) {
   const pathname = usePathname();
   const crumbs = useBreadcrumbOverride(pathname) ?? breadcrumbFor(pathname);
-  const settingsActive = isActive(pathname, '/admin-dashboard/settings');
   const isMobile = useIsMobile();
   const role = useAdminRole();
   const isCeo = role === 'ceo';
@@ -239,16 +264,16 @@ function AdminShellInner({
               </View>
             </>
           )}
+
+          <Text style={[styles.navLabel, { marginTop: 14 }]}>Settings</Text>
+          <View style={styles.navList}>
+            {SETTINGS_ITEMS.map((item) => (
+              <NavLink key={item.href} item={item} active={isActive(pathname, item.href)} />
+            ))}
+          </View>
         </ScrollView>
 
         <View style={styles.sidebarFoot}>
-          <Link href="/admin-dashboard/settings" asChild>
-            <Pressable>
-              <View style={[styles.footLink, settingsActive && styles.navItemActive]}>
-                <Text style={[styles.footLinkText, settingsActive && styles.navTextActive]}>Settings</Text>
-              </View>
-            </Pressable>
-          </Link>
           <Text style={styles.footLinkStatic}>Help Center</Text>
           <Text style={styles.footLinkStatic}>Documentation</Text>
         </View>
