@@ -1,5 +1,5 @@
 import { ReactElement, ReactNode, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Link, router, usePathname } from 'expo-router';
 import { colors, fonts, radius } from '@kicko/shared';
 import { LogoMark } from '../Logo';
@@ -15,7 +15,6 @@ import {
   PaymentsIcon,
   ProfileIcon,
   RefundIcon,
-  SearchIcon,
   VenuesIcon,
 } from '../owner/icons';
 import { BreadcrumbProvider, useBreadcrumbOverride } from '../../lib/breadcrumbContext';
@@ -234,11 +233,6 @@ function AdminShellInner({
           </Pressable>
         </Link>
 
-        <View style={styles.searchBox}>
-          <SearchIcon size={15} color={colors.textSoft} />
-          <TextInput placeholder="Search users…" placeholderTextColor={colors.textSoft} style={styles.searchInput} />
-        </View>
-
         <ScrollView style={styles.navScroll} showsVerticalScrollIndicator={false}>
           <Text style={styles.navLabel}>Overview</Text>
           <View style={styles.navList}>
@@ -361,20 +355,6 @@ const styles = StyleSheet.create({
   logoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   logoText: { fontFamily: fonts.serif, fontSize: 18, color: colors.text, letterSpacing: -0.5 },
   roleTag: { fontFamily: fonts.sansBold, fontSize: 11, color: colors.textSoft, letterSpacing: 0.5, marginTop: 3 },
-
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: colors.bg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    marginBottom: 18,
-  },
-  searchInput: { flex: 1, fontFamily: fonts.sans, fontSize: 13, color: colors.text, outlineStyle: 'none' } as any,
 
   navScroll: { flex: 1 },
   navLabel: {
