@@ -53,6 +53,14 @@ at **[CONTACT EMAIL]**.
   (e.g. the rate limiting described in Section 5). Our hosting and
   infrastructure providers may incidentally log IP addresses as part of
   normal server operation and security monitoring.
+- **Usage analytics**: when you use the website, we record how you
+  interact with it — pages you visit, buttons you tap, and recordings
+  of your on-screen session — using our analytics provider, PostHog.
+  Anything you type (such as phone numbers or passwords) is hidden from
+  these recordings, and they are never captured on administrative
+  pages. If you're signed in, this is linked to your account by an
+  internal ID only, not your name or email. We use this solely to
+  understand where the app is confusing or broken and improve it.
 
 ### 2.3 Information from third parties
 - **Google**: if you sign up or sign in with Google, we receive your
@@ -65,7 +73,9 @@ The web app stores a small amount of data in your browser's local
 storage: your light/dark theme preference, and, if you join a shared
 session without an account, a private "claim" token that lets you later
 attach that session spot to a real account on the same device/browser.
-We do not use third-party advertising or analytics cookies.
+We also use a first-party analytics cookie and local storage set by
+PostHog to recognise repeat visits (see Section 2.2). We do not use
+advertising cookies, and we do not use analytics data for advertising.
 
 ## 3. How we use your information
 
@@ -87,7 +97,7 @@ We use the data above to:
 - Prevent fraud and abuse, including the rate limiting and bot-detection
   measures on our sign-up, payment, and session-join flows;
 - Maintain and improve the Platform, including aggregate analytics on
-  device/browser usage;
+  device/browser usage and usage analytics (Section 2.2);
 - Comply with legal obligations and resolve disputes.
 
 ## 4. Who we share it with
@@ -101,6 +111,7 @@ We share personal data only as needed to run the Platform:
 | **Supabase** | All account, booking, and venue data | Our database and authentication infrastructure host |
 | **Africa's Talking** | Phone number, message content | To deliver SMS notices |
 | **Resend** | Email address, message content | To deliver transactional (and, if opted in, marketing) emails |
+| **PostHog** (EU-hosted) | Pages visited, clicks, masked session recordings, internal account ID | To understand how the Platform is used and improve it |
 
 We do **not** sell your personal data, and we do not share it with
 advertisers or data brokers.
@@ -144,6 +155,9 @@ Supabase project and any other infrastructure, and whether any personal
 data leaves Kenya as a result. If so, this section needs to describe the
 safeguard used, per Kenya's Data Protection Act, 2019 cross-border
 transfer rules.]**
+
+Usage analytics are processed by PostHog on servers in the European
+Union.
 
 ## 8. Your rights
 
@@ -207,3 +221,8 @@ sent to **[CONTACT EMAIL]**.
    (no marketing emails sent). If you build real marketing sends later,
    this section needs updating alongside that work, and the toggle
    needs to actually persist and be honored before it means anything.
+6. **Analytics consent (added 2026-10-26).** PostHog usage analytics and
+   session recording were added to the web app. Confirm with counsel
+   whether the Data Protection Act, 2019 requires opt-in consent (e.g. a
+   cookie/analytics banner) for this, or whether legitimate interest
+   with the disclosure in Sections 2.2/2.4 is sufficient.
