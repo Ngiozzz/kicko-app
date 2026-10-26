@@ -112,3 +112,42 @@ export async function claimOwnerRole(req: Request, res: Response) {
   if (error || !data) return res.status(500).json({ error: "Could not update your role." });
   res.status(200).json({ user: data });
 }
+
+/**
+ * Supabase providers are project-wide, so "Continue with Zoho" on /admin
+ * can't stop a stranger with any Zoho account from completing the OAuth
+ * round trip — the signup trigger just files them as a plain player. The
+ * admin callback calls this to undo exactly that case: an account whose
+ * only identity is Zoho, created moments ago, that never became staff.
+ * Anyone else (a real admin/ceo who linked Zoho, an older account) is
+ * refused, so this can't be used to delete a real account.
+ */
+export async function discardStrayZohoSignup(req: Request, res: Response) {
+  if (req.user!.role !== "player") {
+    return res.status(403).json({ error: "Only a fresh Zoho signup can be discarded." });
+  }
+
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.split(" ")[1] : undefined;
+  if (!token) return res.status(401).json({ error: "Missing or invalid Authorization header." });
+
+  const { data: authData, error: authError } = await supabase.auth.getUser(token);
+  if (authError || !authData?.user) return res.status(401).json({ error: "Invalid or expired token." });
+
+  // Custom OIDC providers are reported as "custom:<identifier>"; match on
+  // the identifier rather than the exact prefix format.
+  const identities = authData.user.identities ?? [];
+  const isFreshZohoSignup =
+    identities.length === 1 &&
+    identities[0].provider.endsWith("zoho") &&
+    Date.now() - new Date(authData.user.created_at).getTime() < OWNER_CLAIM_WINDOW_MS;
+
+  if (!isFreshZohoSignup) {
+    return res.status(403).json({ error: "Only a fresh Zoho signup can be discarded." });
+  }
+
+  // public.users cascades from auth.users.
+  const { error } = await supabase.auth.admin.deleteUser(authData.user.id);
+  if (error) return res.status(500).json({ error: "Could not discard the account." });
+  res.status(204).end();
+}

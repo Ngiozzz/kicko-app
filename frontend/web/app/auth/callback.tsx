@@ -22,17 +22,27 @@ function parseHashOrQueryParam(name: string): string | null {
   return new URLSearchParams(hash).get(name);
 }
 
-// Reached only via redirectTo from GoogleSignInButton's signInWithOAuth
-// call. supabase-js's client picks up the session from the redirect URL
+// Reached only via redirectTo from GoogleSignInButton's (or the /admin
+// Zoho button's) signInWithOAuth call. supabase-js's client picks up the session from the redirect URL
 // automatically (detectSessionInUrl, on by default) — this page just
 // waits for that to settle via onAuthStateChange, then claims the tab's
 // role for a brand-new signup (POST /api/account/me/role) before routing
 // by the account's real role, same as sign-in.tsx does.
+//
+// An 'admin' intent (the Zoho button on /admin) skips all of that: the
+// account must already be admin/ceo, otherwise it's a stranger's Zoho
+// login — discard it if it was just created, sign out, and say so.
 export default function AuthCallback() {
   const [error, setError] = useState<string | null>(null);
+  const [backHref, setBackHref] = useState<'/sign-in' | '/admin'>('/sign-in');
   const handledRef = useRef(false);
 
   useEffect(() => {
+    const { role, next } = readAndClearOAuthIntent();
+    const isAdminFlow = role === 'admin';
+    const fallback = isAdminFlow ? '/admin' : '/sign-in';
+    setBackHref(fallback);
+
     const oauthError = parseHashOrQueryParam('error_description') ?? parseHashOrQueryParam('error');
     if (oauthError) {
       setError(oauthError);
@@ -40,7 +50,7 @@ export default function AuthCallback() {
     }
 
     const timeout = setTimeout(() => {
-      if (!handledRef.current) router.replace('/sign-in');
+      if (!handledRef.current) router.replace(fallback);
     }, TIMEOUT_MS);
 
     const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -54,7 +64,7 @@ export default function AuthCallback() {
         if (event === 'INITIAL_SESSION') {
           handledRef.current = true;
           clearTimeout(timeout);
-          router.replace('/sign-in');
+          router.replace(fallback);
         }
         return;
       }
@@ -62,7 +72,24 @@ export default function AuthCallback() {
       handledRef.current = true;
       clearTimeout(timeout);
 
-      const { role, next } = readAndClearOAuthIntent();
+      if (isAdminFlow) {
+        try {
+          const { user } = await apiFetch<{ user: { role: string } }>('/api/account/me');
+          if (user.role === 'admin' || user.role === 'ceo') {
+            apiFetch('/api/account/device-event', { method: 'POST', body: JSON.stringify({ event: 'signin' }) }).catch(() => {});
+            router.replace('/admin-dashboard');
+            return;
+          }
+          // Refused server-side for anything but a fresh Zoho-only account.
+          await apiFetch('/api/account/me/discard-zoho-signup', { method: 'POST' }).catch(() => {});
+        } catch {
+          // Fall through to signing out — never leave a non-admin session here.
+        }
+        await supabase.auth.signOut();
+        setError("That Zoho account isn't a Kicko admin. Sign in with your kicko-app.co.ke Zoho account.");
+        return;
+      }
+
       if (role === 'owner') {
         try {
           await apiFetch('/api/account/me/role', { method: 'POST', body: JSON.stringify({ role: 'owner' }) });
@@ -97,14 +124,14 @@ export default function AuthCallback() {
         <>
           <Text style={styles.title}>Sign-in didn't go through</Text>
           <Text style={styles.subtitle}>{error}</Text>
-          <Link href="/sign-in" style={styles.link}>
+          <Link href={backHref} style={styles.link}>
             Back to sign in
           </Link>
         </>
       ) : (
         <>
           <Text style={styles.title}>Signing you in…</Text>
-          <Text style={styles.subtitle}>One moment while we finish connecting your Google account.</Text>
+          <Text style={styles.subtitle}>One moment while we finish connecting your account.</Text>
         </>
       )}
     </AuthLayout>

@@ -8,7 +8,10 @@
 const ROLE_KEY = 'kicko_oauth_role';
 const NEXT_KEY = 'kicko_oauth_next';
 
-export type OAuthRole = 'player' | 'owner';
+// 'admin' is never a role anyone signs up as — it marks a "Continue with
+// Zoho" click from /admin, so /auth/callback knows to send the user to the
+// admin dashboard (or turn them away) instead of the player/owner flow.
+export type OAuthRole = 'player' | 'owner' | 'admin';
 
 export function stashOAuthIntent({ role, next }: { role: OAuthRole; next?: string }) {
   try {

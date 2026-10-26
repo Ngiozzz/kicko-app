@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Link, router } from 'expo-router';
-import Svg, { Circle, Polygon } from 'react-native-svg';
+import Svg, { Circle, Polygon, Rect } from 'react-native-svg';
 import { apiFetch, fonts } from '@kicko/shared';
 import { supabase, supabaseConfigured } from '@kicko/shared';
 import { resolveHomeRoute } from '../src/lib/roleRoute';
+import { stashOAuthIntent } from '../src/lib/oauthIntent';
 
 // Fixed dark palette, independent of the app-wide light/dark toggle — this
 // screen is a distinct "internal tool" identity, not a themed public page.
@@ -36,6 +37,18 @@ function AdminLogoMark({ size = 26 }: { size?: number }) {
   );
 }
 
+// Zoho's four brand-colored tiles, simplified to a 2×2 mark at button size.
+function ZohoMark({ size = 18 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 20 20">
+      <Rect x={0} y={0} width={9} height={9} rx={2} fill="#E42527" />
+      <Rect x={11} y={0} width={9} height={9} rx={2} fill="#089949" />
+      <Rect x={0} y={11} width={9} height={9} rx={2} fill="#226DB4" />
+      <Rect x={11} y={11} width={9} height={9} rx={2} fill="#F9B21D" />
+    </Svg>
+  );
+}
+
 function DarkField({
   label,
   ...inputProps
@@ -58,6 +71,30 @@ export default function AdminSignIn() {
   const [password, setPassword] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [zohoLoading, setZohoLoading] = useState(false);
+
+  // 'custom:zoho' is the custom OIDC provider configured in the Supabase
+  // dashboard (identifier "zoho"). Supabase links it to an existing admin
+  // by matching email, so this lands in the same account as the password
+  // login. /auth/callback turns away anyone who isn't admin/ceo.
+  async function handleZoho() {
+    setFormError(null);
+    if (!supabaseConfigured) {
+      setFormError('Supabase isn’t connected yet.');
+      return;
+    }
+    setZohoLoading(true);
+    stashOAuthIntent({ role: 'admin' });
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'custom:zoho',
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+    // A redirect happens on success, so this only runs on an early failure.
+    if (error) {
+      setZohoLoading(false);
+      setFormError(error.message);
+    }
+  }
 
   async function handleSignIn() {
     setFormError(null);
@@ -107,6 +144,21 @@ export default function AdminSignIn() {
         <Text style={styles.subtitle}>Internal access only — sign in with your provisioned admin account.</Text>
 
         <View style={styles.card}>
+          <Pressable
+            onPress={handleZoho}
+            disabled={zohoLoading}
+            style={({ pressed }) => [styles.zohoBtn, (pressed || zohoLoading) && styles.submitBtnPressed]}
+          >
+            <ZohoMark size={18} />
+            <Text style={styles.zohoBtnText}>{zohoLoading ? 'Connecting…' : 'Continue with Zoho'}</Text>
+          </Pressable>
+
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or use your password</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
           <DarkField
             label="Email"
             placeholder="you@kicko.app"
@@ -197,6 +249,23 @@ const styles = StyleSheet.create({
   },
   submitBtnPressed: { opacity: 0.85 },
   submitBtnText: { fontFamily: fonts.sansBold, fontSize: 15, color: dark.accentText },
+
+  zohoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    borderWidth: 1.5,
+    borderColor: dark.border,
+    backgroundColor: dark.bg,
+    borderRadius: 999,
+    paddingVertical: 14,
+  },
+  zohoBtnText: { fontFamily: fonts.sansSemiBold, fontSize: 14.5, color: dark.text },
+
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 20, marginBottom: 20 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: dark.border },
+  dividerText: { fontFamily: fonts.sansMedium, fontSize: 12, color: dark.textSoft },
 
   backLink: {
     fontFamily: fonts.sansMedium,
