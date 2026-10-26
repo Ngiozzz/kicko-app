@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { View, ActivityIndicator, Platform } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, usePathname } from 'expo-router';
 import Head from 'expo-router/head';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
@@ -8,6 +8,7 @@ import { Fraunces_500Medium, Fraunces_700Bold } from '@expo-google-fonts/fraunce
 import { colors } from '@kicko/shared';
 import { injectThemeVars } from '../src/lib/theme';
 import { markActivity } from '../src/lib/sessionActivity';
+import { initAnalytics, trackRoute } from '../src/lib/analytics';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -20,6 +21,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 // what's actually reliable here.
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
   injectThemeVars();
+  initAnalytics();
 }
 
 export default function RootLayout() {
@@ -35,6 +37,11 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});
   }, [fontsLoaded]);
+
+  const pathname = usePathname();
+  useEffect(() => {
+    trackRoute(pathname);
+  }, [pathname]);
 
   // Feeds useRoleGate's inactivity timeout — discrete interaction events
   // only (not mousemove), so this doesn't fire constantly while idle with
